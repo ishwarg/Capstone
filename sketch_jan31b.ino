@@ -8,7 +8,7 @@
 double Setpoint, Input, Output;
 
 //Specify the links and initial tuning parameters
-double Kp=40, Ki=20, Kd=0;
+double Kp=2.3, Ki=1.5, Kd=0;
 PID myPID(&Input, &Output, &Setpoint, Kp, Ki, Kd, DIRECT);
 
 
@@ -22,6 +22,7 @@ double flow = 0;
 bool state = false;
 double time = 0;
 float conc = 0;
+int begin;
 
 
 
@@ -29,12 +30,15 @@ float conc = 0;
 
 void setup() {
   // put your setup code here, to run once:
+  begin = millis();
   Input = analogRead(0);
-  Setpoint = 38;
+  Setpoint = 20;
   pinMode(5, OUTPUT);
   digitalWrite(5, LOW);
-  pinMode(3, OUTPUT);
-  digitalWrite(3, LOW);
+
+  pinMode(6, OUTPUT);
+  digitalWrite(6, LOW);
+
   Serial.begin(9600);
 
   // initialize control over the keyboard:
@@ -43,7 +47,7 @@ void setup() {
   // analogWrite(5, 70);
   // analogWrite(3, 150);
   myPID.SetMode(AUTOMATIC);
-  analogWrite(5, 85);
+  analogWrite(5, 65);
 
 }
 
@@ -87,7 +91,9 @@ void loop() {
   
   
 
-  
+  if (millis()-begin>10000){
+    Setpoint = 20.0*exp(-1*double(millis()-begin)/100000.0);
+  }
   Input = conc;
   myPID.Compute();
   if (Output> 255)
@@ -95,11 +101,18 @@ void loop() {
   if (Output<0){
     Output = 0;
   }
-  Serial.println((int)conc);
+  Serial.print(0);
+  Serial.print(" ");
+  Serial.print(25);
+  Serial.print(" ");
+  Serial.print(Setpoint);
+  Serial.print(" ");
+  Serial.println((int)(conc));
+  // Serial.println((int)(conc-Setpoint)/Setpoint*100);
  
-  analogWrite(3, (int)Output);
-  delay(90);
-
+  analogWrite(6, (int)Output);
+  delay(5);
+  
 
 
   if (Serial.available() > 0) {
