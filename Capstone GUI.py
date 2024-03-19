@@ -2,6 +2,7 @@ from tkinter import *
 from tkinter import filedialog
 import matplotlib.pyplot as plt
 import serial.tools.list_ports
+import serial
 import csv
  
 class GUI(Frame):
@@ -39,6 +40,7 @@ class Sidebar(Frame):
         self.COMlist.grid(row=1,column=0)
         self.grid(padx=50,pady=25)
 def openFile(selected_file_label):
+    serial.write(
     file_path = filedialog.askopenfilename(title="Select a File", filetypes=[("CSV", "*.csv")])
     if file_path:
         selected_file_label.config(text=f"Selected File: {file_path}")
@@ -48,7 +50,12 @@ def process_file(file_path,selected_file_label):
     # For demonstration, let's just display the contents of the selected file
         try:
             with open(file_path, 'r') as file:
+                global time,concentration
+                time,concentration=[]
                 file_contents = csv.reader(file_path)
+                for row in file_contents:
+                    time.append(row[0])
+                    concentration.append(row[1])
         except Exception as e:
             selected_file_label.config(text=f"Error: {str(e)}")
 def listPorts():
