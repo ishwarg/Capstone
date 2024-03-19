@@ -1,8 +1,8 @@
 #include <PID_v1.h>
 
-
-
-
+#define WATER 5
+#define SALT 6
+#define CONCENTRATION 0
 
 //Define Variables we'll be connecting to
 double Setpoint, Input, Output;
@@ -25,28 +25,21 @@ float conc = 0;
 int begin;
 
 
-
-
-
 void setup() {
   // put your setup code here, to run once:
   begin = millis();
-  Input = analogRead(0);
+  Input = analogRead(CONCENTRATION);
   Setpoint = 20;
-  pinMode(5, OUTPUT);
-  digitalWrite(5, LOW);
+  
+  pinMode(WATER, OUTPUT);
+  digitalWrite(WATER, LOW);
 
-  pinMode(6, OUTPUT);
-  digitalWrite(6, LOW);
+  pinMode(SALT, OUTPUT);
+  digitalWrite(SALT, LOW);
 
   Serial.begin(9600);
-
-  // initialize control over the keyboard:
-
-
-  // analogWrite(5, 70);
-  // analogWrite(3, 150);
   myPID.SetMode(AUTOMATIC);
+
   analogWrite(5, 65);
 
 }
@@ -61,7 +54,7 @@ void loop() {
   //
 
   for(int i =0; i<50;i++){
-    conc += analogRead(0);
+    conc += analogRead(CONCENTRATION);
     
   }
   conc = conc/50;
@@ -110,7 +103,7 @@ void loop() {
   Serial.println((int)(conc));
   // Serial.println((int)(conc-Setpoint)/Setpoint*100);
  
-  analogWrite(6, (int)Output);
+  analogWrite(SALT, (int)Output);
   delay(5);
   
 
@@ -120,8 +113,8 @@ void loop() {
     // read incoming serial data:
     
     char inChar = Serial.read();
-    if (inChar == 'q'){
-      Serial.println("received");
+    if (inChar == 'a'){
+      Serial.println("Waiting to set water speed...");
 
       while(Serial.available()== 0){
 
@@ -130,40 +123,14 @@ void loop() {
       lowSpeed = Serial.parseInt();
       Serial.println(lowSpeed);
       if (lowSpeed <255&&lowSpeed>=0)
-      analogWrite(3, lowSpeed );
+        analogWrite(WATER, lowSpeed );
+      else
+        analogWrite(WATER, lowSpeed);
       
 
-    }
-  
-    if (inChar == 'w'){
-      Serial.println("received");
+      
 
-      while(Serial.available()== 0){
-
-      }
-      Serial.println("Changing...");
-
-      highSpeed = Serial.parseInt();
-      Serial.println(highSpeed);
-
-      if (highSpeed <255&&highSpeed>=0)
-      analogWrite(5, highSpeed );
-
-    }
-    if (inChar == 's'){
-      Serial.println("received");
-
-      while(Serial.available()== 0){
-
-      }
-      Serial.println("Changing...");
-
-      Setpoint = (double)Serial.parseInt();
-      Serial.println(highSpeed);
-
-      if (highSpeed <255&&highSpeed>=0)
-      analogWrite(5, highSpeed );
-
+    
     }
 
   }
