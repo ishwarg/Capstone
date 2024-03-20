@@ -1,9 +1,15 @@
 from tkinter import *
 from tkinter import filedialog
 import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg,  
+NavigationToolbar2Tk)
+from matplotlib import animation
 import serial.tools.list_ports
 import serial
 import csv
+import parse
+import numpy as np
  
 class GUI(Frame):
     def __init__(self, master):
@@ -16,18 +22,45 @@ class GUI(Frame):
     def createwidgets(self):
         self.title=Label(self,text="Dynamic Phantom GUI")
         self.side=Sidebar(self)
-        self.plot=Frame(self)
+        self.plot=Plot(self)
         self.title.grid(row=0,column=0, columnspan=5)
         self.side.grid(row=1, rowspan=2, column=0)
         self.plot.grid(row=1,rowspan=2, column=1, columnspan=4)
+class Plot(Frame):
+    def __init__(self,master):
+        Frame.__init__(self,master)
+        fig=Figure(figsize=(5,5),dpi=100)
+        ax=fig.add_subplot(111)
+        line,=ax.plot([],[],lw=2)
+        canvas=FigureCanvasTkAgg(fig,master=self)
+        
+        canvas.get_tk_widget().pack()
+        toolbar = NavigationToolbar2Tk(canvas,self)
+        max_points = 50
+        # fill initial artist with nans (so nothing draws)
+        line, = ax.plot(np.arange(max_points), 
+                        np.ones(max_points, dtype=float)*np.nan, 
+                        lw=2)
+        anim = animation.FuncAnimation(fig, animate, init_func=init, frames=200, interval=20,        blit=False)
 
+        plt.show()
+def init():
+    return line,
+
+def animate(i):
+    y = arduino.readline()  # I assume this 
+    old_y = line.get_ydata()  # grab current data
+    new_y = np.r_[old_y[1:], y]  # stick new data on end of old data
+    line.set_ydata(new_y)        # set the new ydata
+    return line,
+        
 class Sidebar(Frame):
     def __init__(self,master):
         Frame.__init__(self,master)
         self.COM=Label(self,text="COM Port")
         clicked = StringVar()  
         clicked.set( "" )
-        self.COMlist=OptionMenu(self,clicked,ports)
+        self.COMlist=OptionMenu(self,clicked,*ports)
         self.selFile=Label(self,text="No File Selected")
         self.buttonOpen=Button(self,text="Open File",command=lambda:openFile(self.selFile))    
         self.buttonCali=Button(self,text="Calibrate")
@@ -70,14 +103,16 @@ def process_file(file_path,selected_file_label):
 def listPorts():
     L=[]
     ports = serial.tools.list_ports.comports()
-    
     for port, desc, hwid in sorted(ports):
-        print("{}: {} [{}]".format(port, desc, hwid))
-        L.append("{}: {} [{}]".format(port, desc, hwid))
+        print("{}: {} ".format(port, desc))
+        L.append("{}: {}".format(port, desc))
+    print(L)
     return L
 global ports
 def connectCOM(port):
-    serial.Serial(String(port))
+    global arduino
+    p=parse.parse("{}: {}",port.get())
+    arduino=serial.Serial(p[0],9600)
 
 ports=listPorts()
 root=Tk()
