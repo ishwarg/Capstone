@@ -32,15 +32,21 @@ class Sidebar(Frame):
         self.buttonOpen=Button(self,text="Open File",command=lambda:openFile(self.selFile))    
         self.buttonCali=Button(self,text="Calibrate")
         self.buttonRun=Button(self,text="Run Test")
+        dec=StringVar()
+        self.entLab=Label(self,text="Decay Constant")
+        self.ent=Entry(self,textvariable=dec)
+        self.COMbut=Button(self,text="Connect")
         self.buttonOpen.grid(row=2,column=0)
         self.selFile.grid(row=3,column=0)
         self.buttonCali.grid(row=4,column=0)
         self.buttonRun.grid(row=5,column=0)
         self.COM.grid(row=0,column=0)
         self.COMlist.grid(row=1,column=0)
+        self.entLab.grid(row=6,column=0)
+        self.ent.grid(row=6,column=1)
+        self.COMbut.grid(row=1,column=1)
         self.grid(padx=50,pady=25)
 def openFile(selected_file_label):
-    serial.write(
     file_path = filedialog.askopenfilename(title="Select a File", filetypes=[("CSV", "*.csv")])
     if file_path:
         selected_file_label.config(text=f"Selected File: {file_path}")
@@ -50,12 +56,12 @@ def process_file(file_path,selected_file_label):
     # For demonstration, let's just display the contents of the selected file
         try:
             with open(file_path, 'r') as file:
-                global time,concentration
-                time,concentration=[]
-                file_contents = csv.reader(file_path)
+                global timeconc
+                timeconc=[]
+                file_contents = csv.reader(file,delimiter=',')
                 for row in file_contents:
-                    time.append(row[0])
-                    concentration.append(row[1])
+                    timeconc.append(row)
+                    print(row)
         except Exception as e:
             selected_file_label.config(text=f"Error: {str(e)}")
 def listPorts():
