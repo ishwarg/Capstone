@@ -35,7 +35,7 @@ class Sidebar(Frame):
         dec=StringVar()
         self.entLab=Label(self,text="Decay Constant")
         self.ent=Entry(self,textvariable=dec)
-        self.COMbut=Button(self,text="Connect")
+        self.COMbut=Button(self,text="Connect",command=lambda:connectCOM(clicked))
         self.buttonOpen.grid(row=2,column=0)
         self.selFile.grid(row=3,column=0)
         self.buttonCali.grid(row=4,column=0)
@@ -56,12 +56,15 @@ def process_file(file_path,selected_file_label):
     # For demonstration, let's just display the contents of the selected file
         try:
             with open(file_path, 'r') as file:
-                global timeconc
+                global timeconc,filesize
                 timeconc=[]
+                filesize=0
                 file_contents = csv.reader(file,delimiter=',')
                 for row in file_contents:
                     timeconc.append(row)
+                    filesize+=1
                     print(row)
+                print(filesize)
         except Exception as e:
             selected_file_label.config(text=f"Error: {str(e)}")
 def listPorts():
@@ -73,6 +76,8 @@ def listPorts():
         L.append("{}: {} [{}]".format(port, desc, hwid))
     return L
 global ports
+def connectCOM(port):
+    serial.Serial(String(port))
 
 ports=listPorts()
 root=Tk()
