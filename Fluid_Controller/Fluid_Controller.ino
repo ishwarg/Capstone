@@ -8,13 +8,18 @@
 #define CALIBRATE 2
 #define FLUSH 3
 #define CURVELOAD 4
-#define PAUSE 5
-#define STOP 6
+#define STOP 5
 
-//Define Variables we'll be connecting to
+#define CALIBRATION_TIME 10000
+#define FLUSH_TIME 10000
+
+#define FULL_SPEED 255
+#define OFF 0
+#define WATER_SPEED 65
+
+
 double Setpoint, Input, Output;
 
-//Specify the links and initial tuning parameters
 double Kp=2.3, Ki=1.5, Kd=0;
 PID myPID(&Input, &Output, &Setpoint, Kp, Ki, Kd, DIRECT);
 
@@ -26,16 +31,21 @@ int prevSig = 0;
 int newSig = 0;
 double freq = 0.0;
 double flow = 0;
-bool state = false;
 double time = 0;
+
 float conc = 0;
+float salt_conc = 0;
+float water_conc = 0;
+
 int begin;
 int state = 0;
+bool flowState = false;
+
 
 
 void setup() {
-  // put your setup code here, to run once:
-  begin = millis();  //beginning the timer for when the code starts
+
+  
   Input = analogRead(CONCENTRATION);
   Setpoint = 20;  //initial target concentration; will be changed when the calibration curve is loaded in
   
@@ -46,10 +56,11 @@ void setup() {
   digitalWrite(SALT, LOW);
 
   Serial.begin(9600);
-  myPID.SetMode(AUTOMATIC);
+  myPID.SetMode(MANUAL);
 
-  analogWrite(WATER, 65);
-  state = RUN;
+  analogWrite(WATER, WATER_SPEED);
+  state = RUN; //change this to be in the Stopped State once GUI is fully done
+  begin = millis();  //beginning the timer for when the code starts
 
 }
 
@@ -60,21 +71,28 @@ void loop() {
     
   }
   conc = conc/50;
+  Serial.print(0);
+  Serial.print(" ");
+  Serial.print(25);
+  Serial.print(" ");
+  Serial.print(Setpoint);
+  Serial.print(" ");
+  Serial.println((int)(conc));
   
   
 /*  FLOW METER CODE
 
 
-  if (newSig-prevSig>100 && !state){
+  if (newSig-prevSig>100 && !flowstate){
     time = micros();
-    state = true; 
+    flowstate = true; 
   }
   
-  if (newSig-prevSig<100 && state){
+  if (newSig-prevSig<100 && flowstate){
     time = micros()-time;
     time = time/1000000;
     
-    state = false;
+    flowstate = false;
     freq = 1.0/time/2.0;
 
     flow = freq/38;
@@ -84,6 +102,7 @@ void loop() {
 
   switch (state) {
     case RUN:
+      myPID.SetMode(AUTOMATIC);
       if (millis()-begin>10000){
         Setpoint = 20.0*exp(-1*double(millis()-begin)/100000.0);  //REPLACE WITH ACTUAL INPUT CURVE CODE
       }
@@ -97,35 +116,76 @@ void loop() {
       }
 
 
-      Serial.print(0);
-      Serial.print(" ");
-      Serial.print(25);
-      Serial.print(" ");
-      Serial.print(Setpoint);
-      Serial.print(" ");
-      Serial.println((int)(conc));
+      
       // Serial.println((int)(conc-Setpoint)/Setpoint*100);
     
-      analogWrite(6, (int)Output);
+      analogWrite(SALT, (int)Output);
       delay(5);
+      state = RUN;
   
       break;
+
     case CALIBRATE:
-    
+      int calibrationStart = millis();
+
+      analogWrite(WATER, FULL_SPEED);
+      analogWrite(SALT, OFF);
+
+      while (millis() - calibrationStart <=CALIBRATION_TIME){
+        
+      }
+
+      analogWrite(WATER, OFF);
+      analogWrite(SALT, OFF);
+
+      delay(1000);
+      for(int i =0; i<50;i++){
+        water_conc += analogRead(0);
+      }
+      water_conc = water_conc/50;
+
+      calibrationStart = millis();
+      analogWrite(WATER, OFF);
+      analogWrite(SALT, FULL_SPEED);
+
+      while (millis() - calibrationStart <=CALIBRATION_TIME){
+        
+      }
+
+      analogWrite(WATER, OFF);
+      analogWrite(SALT, OFF);
+
+      delay(1000);
+      for(int i =0; i<50;i++){
+        salt_conc += analogRead(0);
+      }
+      salt_conc = salt_conc/50;
+
+      state = STOP;
+
       break;
     case FLUSH:
+      int flushStart = millis();
+
+      analogWrite(WATER, FULL_SPEED);
+      analogWrite(SALT, FULL_SPEED);
+
+      while(millis() - flushStart<= 10000 ){
+
+      }
+      analogWrite(WATER, OFF);
+      analogWrite(SALT, OFF);
 
       break;
     
     case CURVELOAD:
-
+      
       break;
-    
-    case PAUSE:
 
-      break;
     case STOP:
-
+      myPID.SetMode(MANUAL);
+      analogWrite(WATER, OFF);
+      analogWrite(SALT, OFF);
 
       break;
 
