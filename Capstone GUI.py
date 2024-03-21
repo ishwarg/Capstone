@@ -41,18 +41,21 @@ class Plot(Frame):
         line, = ax.plot(np.arange(max_points), 
                         np.ones(max_points, dtype=float)*np.nan, 
                         lw=2)
-        anim = animation.FuncAnimation(fig, lambda:animate(port), init_func=init, frames=200, interval=20,        blit=False)
+        global anim
+        anim = animation.FuncAnimation(fig, (lambda i, port=(arduino if COMconnected else ""):self.animate(port,i)),  frames=200, interval=20,        blit=False)
 
         plt.show()
-def init():
-    return line,
 
-def animate(port,i):
-    y = port.readline()  # I assume this 
-    old_y = line.get_ydata()  # grab current data
-    new_y = np.r_[old_y[1:], y]  # stick new data on end of old data
-    line.set_ydata(new_y)        # set the new ydata
-    return line,
+    def animate(self,port,i):
+        if port=="":
+            line.set_ydata(0)
+            return line,
+        else:
+            y = port.readline()  # I assume this 
+            old_y = line.get_ydata()  # grab current data
+            new_y = np.r_[old_y[1:], y]  # stick new data on end of old data
+            line.set_ydata(new_y)        # set the new ydata
+            return line,
         
 class Sidebar(Frame):
     def __init__(self,master):
