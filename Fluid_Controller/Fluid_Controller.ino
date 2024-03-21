@@ -194,7 +194,7 @@ void loop()
   case CURVELOAD:
     analogWrite(WATER, OFF);
     analogWrite(SALT, OFF);
-    while (Serial.available==0){
+    while (Serial.available()==0){
 
     }
     if (Serial.available() > 0)
