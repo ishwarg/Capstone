@@ -41,14 +41,14 @@ class Plot(Frame):
         line, = ax.plot(np.arange(max_points), 
                         np.ones(max_points, dtype=float)*np.nan, 
                         lw=2)
-        anim = animation.FuncAnimation(fig, animate, init_func=init, frames=200, interval=20,        blit=False)
+        anim = animation.FuncAnimation(fig, lambda:animate(port), init_func=init, frames=200, interval=20,        blit=False)
 
         plt.show()
 def init():
     return line,
 
-def animate(i):
-    y = arduino.readline()  # I assume this 
+def animate(port,i):
+    y = port.readline()  # I assume this 
     old_y = line.get_ydata()  # grab current data
     new_y = np.r_[old_y[1:], y]  # stick new data on end of old data
     line.set_ydata(new_y)        # set the new ydata
@@ -60,15 +60,19 @@ class Sidebar(Frame):
         self.COM=Label(self,text="COM Port")
         clicked = StringVar()  
         clicked.set( "" )
-        self.COMlist=OptionMenu(self,clicked,*ports)
+        self.COMlist=OptionMenu(self,clicked,ports)
         self.selFile=Label(self,text="No File Selected")
-        self.buttonOpen=Button(self,text="Open File",command=lambda:openFile(self.selFile))    
-        self.buttonCali=Button(self,text="Calibrate")
-        self.buttonRun=Button(self,text="Run Test")
+        self.buttonOpen=Button(self,text="Open File",command=lambda:openFile(self.selFile,self.buttonLoadCurve))    
+        self.buttonCali=Button(self,text="Calibrate",state="disabled",command=lambda:calibrate(arduino))
+        self.buttonRun=Button(self,text="Run Test",state="disabled",command=lambda:startTest(self.pauBut,self.stopBut,arduino))
+        self.buttonStop=Button(self,text="Stop Test",state="disabled",command=lambda:stopTest(arduino))
+        self.buttonPause=Button(self,text="Pause",state="disabled",command=lambda:pause(arduino))
+        self.buttonFlush=Button(self,text="Flush System",state="disabled",command=lambda:flush(arduino))
+        self.buttonLoadCurve=Button(self,text="Load Curve",state="disabled",command=lambda:loadCurve(arduino,filesize,timeconc,self.buttonRun))
         dec=StringVar()
         self.entLab=Label(self,text="Decay Constant")
         self.ent=Entry(self,textvariable=dec)
-        self.COMbut=Button(self,text="Connect",command=lambda:connectCOM(clicked))
+        self.COMbut=Button(self,text="Connect",command=lambda:connectCOM(clicked,self.buttonCali,self.buttonRun,self.buttonFlush))
         self.buttonOpen.grid(row=2,column=0)
         self.selFile.grid(row=3,column=0)
         self.buttonCali.grid(row=4,column=0)
@@ -78,26 +82,52 @@ class Sidebar(Frame):
         self.entLab.grid(row=6,column=0)
         self.ent.grid(row=6,column=1)
         self.COMbut.grid(row=1,column=1)
+        self.buttonPause.grid(row=7,column=0)
+        self.buttonStop.grid(row=7,column=1)
+        self.buttonFlush.grid(row=9,column=0)
+        self.buttonLoadCurve.grid(row=2,column=1)
         self.grid(padx=50,pady=25)
-def openFile(selected_file_label):
+def startTest(pauBut,stopBut,port):
+    port.write((1).to_bytes())
+    pauBut["state"]="normal"
+    stopBut["state"]="normal"
+def calibrate(port):
+    port.write((2).to_bytes())
+def flush(port):
+    port.write((3).to_bytes())
+def loadCurve(port,filesize,curve,runBut):
+    port.write((4).to_bytes())
+    port.write(filesize.to_bytes())
+    for x in curve:
+        port.write(x[0])
+        port.write(x[1])
+        runBut["state"]="normal"
+def pause(port):
+    port.write((5).to_bytes())
+def stopTest(port):
+    port.write((6).to_bytes())
+    
+def openFile(selected_file_label,loadBut):
     file_path = filedialog.askopenfilename(title="Select a File", filetypes=[("CSV", "*.csv")])
     if file_path:
         selected_file_label.config(text=f"Selected File: {file_path}")
-        process_file(file_path,selected_file_label)
-def process_file(file_path,selected_file_label):
+        process_file(file_path,selected_file_label,loadBut)
+def process_file(file_path,selected_file_label,loadBut):
     # Implement your file processing logic here
     # For demonstration, let's just display the contents of the selected file
         try:
             with open(file_path, 'r') as file:
-                global timeconc,filesize
+                global timeconc,filesize, fileOpened
                 timeconc=[]
                 filesize=0
                 file_contents = csv.reader(file,delimiter=',')
                 for row in file_contents:
                     timeconc.append(row)
                     filesize+=1
-                    print(row)
-                print(filesize)
+
+                if COMconnected==True:
+                    loadBut["state"]="normal"
+                fileOpened=True
         except Exception as e:
             selected_file_label.config(text=f"Error: {str(e)}")
 def listPorts():
@@ -106,14 +136,20 @@ def listPorts():
     for port, desc, hwid in sorted(ports):
         print("{}: {} ".format(port, desc))
         L.append("{}: {}".format(port, desc))
-    print(L)
     return L
 global ports
-def connectCOM(port):
-    global arduino
+def connectCOM(port,calBut,runBut,flushBut):
+    global arduino, COMconnected
     p=parse.parse("{}: {}",port.get())
     arduino=serial.Serial(p[0],9600)
+    calBut["state"]="normal"
+    flushBut["state"]="normal"
+    if fileOpened==True:
+        runBut["state"]="normal"
+    COMconnected=True
 
+COMconnected=False
+fileOpened=False
 ports=listPorts()
 root=Tk()
 gui=GUI(root)
