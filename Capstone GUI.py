@@ -62,8 +62,8 @@ class Sidebar(Frame):
     def __init__(self,master):
         Frame.__init__(self,master)
         self.COM=Label(self,text="COM Port")
-        clicked = StringVar()  
-        clicked.set( "" )
+        clicked = StringVar()
+        clicked.set=""
         self.COMlist=OptionMenu(self,clicked,*ports)
         self.selFile=Label(self,text="No File Selected")
         self.buttonOpen=Button(self,text="Open File",command=lambda:openFile(self.selFile,self.buttonLoadCurve))    
@@ -136,7 +136,7 @@ def process_file(file_path,selected_file_label,loadBut):
         except Exception as e:
             selected_file_label.config(text=f"Error: {str(e)}")
 def listPorts():
-    L=[]
+    L=[""]
     ports = serial.tools.list_ports.comports()
     for port, desc, hwid in sorted(ports):
         print("{}: {} ".format(port, desc))
