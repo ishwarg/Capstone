@@ -10,6 +10,7 @@ import serial
 import csv
 import parse
 import numpy as np
+import struct
  
 class GUI(Frame):
     def __init__(self, master):
@@ -63,11 +64,11 @@ class Sidebar(Frame):
         self.COM=Label(self,text="COM Port")
         clicked = StringVar()  
         clicked.set( "" )
-        self.COMlist=OptionMenu(self,clicked,ports)
+        self.COMlist=OptionMenu(self,clicked,*ports)
         self.selFile=Label(self,text="No File Selected")
         self.buttonOpen=Button(self,text="Open File",command=lambda:openFile(self.selFile,self.buttonLoadCurve))    
         self.buttonCali=Button(self,text="Calibrate",state="disabled",command=lambda:calibrate(arduino))
-        self.buttonRun=Button(self,text="Run Test",state="disabled",command=lambda:startTest(self.pauBut,self.stopBut,arduino))
+        self.buttonRun=Button(self,text="Run Test",state="disabled",command=lambda:startTest(self.buttonPause,self.buttonStop,arduino))
         self.buttonStop=Button(self,text="Stop Test",state="disabled",command=lambda:stopTest(arduino))
         self.buttonPause=Button(self,text="Pause",state="disabled",command=lambda:pause(arduino))
         self.buttonFlush=Button(self,text="Flush System",state="disabled",command=lambda:flush(arduino))
@@ -91,24 +92,25 @@ class Sidebar(Frame):
         self.buttonLoadCurve.grid(row=2,column=1)
         self.grid(padx=50,pady=25)
 def startTest(pauBut,stopBut,port):
-    port.write((1).to_bytes())
+    port.write((1).to_bytes(1,"big"))
     pauBut["state"]="normal"
     stopBut["state"]="normal"
 def calibrate(port):
-    port.write((2).to_bytes())
+    port.write((2).to_bytes(1,"big"))
 def flush(port):
-    port.write((3).to_bytes())
+    port.write((3).to_bytes(1,"big"))
 def loadCurve(port,filesize,curve,runBut):
-    port.write((4).to_bytes())
-    port.write(filesize.to_bytes())
+    port.write((4).to_bytes(1,"big"))
+    port.write(filesize.to_bytes(2,"big"))
     for x in curve:
-        port.write(x[0])
-        port.write(x[1])
+        print(x)
+        port.write(bytes(x[0], 'utf-8'))
+        port.write(bytes(x[1], 'utf-8'))
         runBut["state"]="normal"
 def pause(port):
-    port.write((5).to_bytes())
+    port.write((5).to_bytes(1,"big"))
 def stopTest(port):
-    port.write((6).to_bytes())
+    port.write((6).to_bytes(1,"big"))
     
 def openFile(selected_file_label,loadBut):
     file_path = filedialog.askopenfilename(title="Select a File", filetypes=[("CSV", "*.csv")])
