@@ -61,36 +61,48 @@ class Plot(Frame):
 class Sidebar(Frame):
     def __init__(self,master):
         Frame.__init__(self,master)
-        self.COM=Label(self,text="COM Port")
+        
         clicked = StringVar()
         clicked.set=""
+        
+        self.COM=Label(self,text="COM Port")
         self.COMlist=OptionMenu(self,clicked,*ports)
-        self.selFile=Label(self,text="No File Selected")
-        self.buttonOpen=Button(self,text="Open File",command=lambda:openFile(self.selFile,self.buttonLoadCurve))    
+        self.buttonCOM=Button(self,text="Connect",command=lambda:connectCOM(clicked,self.buttonCali,self.buttonRun,self.buttonFlush))
+
+        self.buttonOpenSphere=Button(self,text="Open Sphere File",command=lambda:openFile(self.selFileSphere,self.buttonLoadCurveSphere))
+        self.selFileSphere=Label(self,text="No File Selected")
+        self.buttonLoadCurveSphere=Button(self,text="Load Sphere Curve",state="disabled",command=lambda:loadCurve(arduino,filesize,timeconc,self.buttonRun))
+        
+        self.buttonOpenKidney=Button(self,text="Open Kidney File",command=lambda:openFile(self.selFileKidney,self.buttonLoadCurveKidney))
+        self.selFileKidney=Label(self,text="No File Selected")
+        self.buttonLoadCurveKidney=Button(self,text="Load Kidney Curve",state="disabled",command=lambda:loadCurve(arduino,filesize,timeconc,self.buttonRun))
+
         self.buttonCali=Button(self,text="Calibrate",state="disabled",command=lambda:calibrate(arduino))
         self.buttonRun=Button(self,text="Run Test",state="disabled",command=lambda:startTest(self.buttonPause,self.buttonStop,arduino))
         self.buttonStop=Button(self,text="Stop Test",state="disabled",command=lambda:stopTest(arduino))
         self.buttonPause=Button(self,text="Pause",state="disabled",command=lambda:pause(arduino))
         self.buttonFlush=Button(self,text="Flush System",state="disabled",command=lambda:flush(arduino))
-        self.buttonLoadCurve=Button(self,text="Load Curve",state="disabled",command=lambda:loadCurve(arduino,filesize,timeconc,self.buttonRun))
+        
         dec=StringVar()
         self.entLab=Label(self,text="Decay Constant")
         self.ent=Entry(self,textvariable=dec)
-        self.COMbut=Button(self,text="Connect",command=lambda:connectCOM(clicked,self.buttonCali,self.buttonRun,self.buttonFlush))
-        self.buttonOpen.grid(row=2,column=0)
-        self.selFile.grid(row=3,column=0)
-        self.buttonCali.grid(row=4,column=0)
-        self.buttonRun.grid(row=5,column=0)
+
         self.COM.grid(row=0,column=0)
-        self.COMlist.grid(row=1,column=0)
-        self.entLab.grid(row=6,column=0)
-        self.ent.grid(row=6,column=1)
-        self.COMbut.grid(row=1,column=1)
-        self.buttonPause.grid(row=7,column=0)
-        self.buttonStop.grid(row=7,column=1)
-        self.buttonFlush.grid(row=9,column=0)
-        self.buttonLoadCurve.grid(row=2,column=1)
+        self.COMlist.grid(row=0,column=1)
+        self.buttonCOM.grid(row=0,column=2)
+        self.selFileSphere.grid(row=1,column=0)
+        self.buttonOpenSphere.grid(row=1,column=1)
+        self.buttonLoadCurveSphere.grid(row=1,column=2)
+        self.selFileKidney.grid(row=2,column=0)
+        self.buttonOpenKidney.grid(row=2,column=1)
+        self.buttonLoadCurveKidney.grid(row=2,column=2)
+        self.buttonCali.grid(row=3,column=0)
+        self.buttonFlush.grid(row=3,column=1)
+        self.buttonRun.grid(row=4,column=0)
+        self.buttonStop.grid(row=4,column=1)
+        self.buttonPause.grid(row=4,column=2)
         self.grid(padx=50,pady=25)
+        
 def startTest(pauBut,stopBut,port):
     port.write((1).to_bytes(1,"big"))
     pauBut["state"]="normal"
@@ -99,11 +111,17 @@ def calibrate(port):
     port.write((2).to_bytes(1,"big"))
 def flush(port):
     port.write((3).to_bytes(1,"big"))
-def loadCurve(port,filesize,curve,runBut):
+def loadCurveSphere(port,filesize,curve,runBut):
     port.write((4).to_bytes(1,"big"))
     port.write(filesize.to_bytes(2,"big"))
     for x in curve:
-        print(x)
+        port.write(bytes(x[0], 'utf-8'))
+        port.write(bytes(x[1], 'utf-8'))
+        runBut["state"]="normal"
+def loadCurveKidney(port,filesize,curve,runBut):
+    port.write((4).to_bytes(1,"big"))
+    port.write(filesize.to_bytes(2,"big"))
+    for x in curve:
         port.write(bytes(x[0], 'utf-8'))
         port.write(bytes(x[1], 'utf-8'))
         runBut["state"]="normal"
