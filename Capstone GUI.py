@@ -118,13 +118,18 @@ class Sidebar(Frame):
         self.COMlist=OptionMenu(self,clicked,*ports)
         self.buttonCOM=Button(self,text="Connect",command=lambda:connectCOM(clicked,self.buttonCali,self.buttonRun,self.buttonFlush))
 
-        self.buttonOpenSphere=Button(self,text="Open Sphere File",command=lambda:openFile(self.selFileSphere,self.buttonLoadCurveSphere))
+        dec=StringVar()
+        dec.set("0")
+        self.entLab=Label(self,text="Decay Half-life (s)")
+        self.ent=Entry(self,textvariable=dec)
+
+        self.buttonOpenSphere=Button(self,text="Open Sphere File",command=lambda:openFile(self.selFileSphere,self.buttonLoadCurveSphere,dec,"sph"))
         self.selFileSphere=Label(self,text="No File Selected")
-        self.buttonLoadCurveSphere=Button(self,text="Load Sphere Curve",state="disabled",command=lambda:loadCurve(arduino,filesize,timeconc,self.buttonRun))
+        self.buttonLoadCurveSphere=Button(self,text="Load Sphere Curve",state="disabled",command=lambda:loadCurve(arduino,filesize,timeconcsph,self.buttonRun))
         
-        self.buttonOpenKidney=Button(self,text="Open Kidney File",command=lambda:openFile(self.selFileKidney,self.buttonLoadCurveKidney))
+        self.buttonOpenKidney=Button(self,text="Open Kidney File",command=lambda:openFile(self.selFileKidney,self.buttonLoadCurveKidney,dec,"kid"))
         self.selFileKidney=Label(self,text="No File Selected")
-        self.buttonLoadCurveKidney=Button(self,text="Load Kidney Curve",state="disabled",command=lambda:loadCurve(arduino,filesize,timeconc,self.buttonRun))
+        self.buttonLoadCurveKidney=Button(self,text="Load Kidney Curve",state="disabled",command=lambda:loadCurve(arduino,filesize,timeconckid,self.buttonRun))
 
         self.buttonCali=Button(self,text="Calibrate",state="disabled",command=lambda:calibrate(arduino))
         self.buttonRun=Button(self,text="Run Test",state="disabled",command=lambda:startTest(self.buttonPause,self.buttonStop,arduino))
@@ -132,24 +137,23 @@ class Sidebar(Frame):
         self.buttonPause=Button(self,text="Pause",state="disabled",command=lambda:pause(arduino))
         self.buttonFlush=Button(self,text="Flush System",state="disabled",command=lambda:flush(arduino))
         
-        dec=StringVar()
-        self.entLab=Label(self,text="Decay Constant")
-        self.ent=Entry(self,textvariable=dec)
 
         self.COM.grid(row=0,column=0,padx=5,pady=5)
         self.COMlist.grid(row=0,column=1,padx=5,pady=5)
         self.buttonCOM.grid(row=0,column=2,padx=5,pady=5)
-        self.selFileSphere.grid(row=1,column=0,padx=5,pady=5)
-        self.buttonOpenSphere.grid(row=1,column=1,padx=5,pady=5)
-        self.buttonLoadCurveSphere.grid(row=1,column=2,padx=5,pady=5)
-        self.selFileKidney.grid(row=2,column=0,padx=5,pady=5)
-        self.buttonOpenKidney.grid(row=2,column=1,padx=5,pady=5)
-        self.buttonLoadCurveKidney.grid(row=2,column=2,padx=5,pady=5)
-        self.buttonCali.grid(row=3,column=1,padx=5,pady=5)
-        self.buttonRun.grid(row=4,column=0,padx=5,pady=5)
-        self.buttonStop.grid(row=4,column=1,padx=5,pady=5)
-        self.buttonPause.grid(row=4,column=2,padx=5,pady=5)
-        self.buttonFlush.grid(row=5,column=1,padx=5,pady=5)
+        self.entLab.grid(row=1,column=0,padx=5,pady=5)
+        self.ent.grid(row=1,column=1,padx=5,pady=5)
+        self.selFileSphere.grid(row=2,column=0,padx=5,pady=5)
+        self.buttonOpenSphere.grid(row=2,column=1,padx=5,pady=5)
+        self.buttonLoadCurveSphere.grid(row=2,column=2,padx=5,pady=5)
+        self.selFileKidney.grid(row=3,column=0,padx=5,pady=5)
+        self.buttonOpenKidney.grid(row=3,column=1,padx=5,pady=5)
+        self.buttonLoadCurveKidney.grid(row=3,column=2,padx=5,pady=5)
+        self.buttonCali.grid(row=4,column=1,padx=5,pady=5)
+        self.buttonRun.grid(row=5,column=0,padx=5,pady=5)
+        self.buttonStop.grid(row=5,column=1,padx=5,pady=5)
+        self.buttonPause.grid(row=5,column=2,padx=5,pady=5)
+        self.buttonFlush.grid(row=6,column=1,padx=5,pady=5)
         self.grid(padx=25,pady=25)
         
 def startTest(pauBut,stopBut,port):
@@ -179,26 +183,41 @@ def pause(port):
 def stopTest(port):
     port.write((6).to_bytes(1,"big"))
     
-def openFile(selected_file_label,loadBut):
+def openFile(selected_file_label,loadBut,decay,cham):
     file_path = filedialog.askopenfilename(title="Select a File", filetypes=[("CSV", "*.csv")])
     if file_path:
         selected_file_label.config(text=f"Selected File: {os.path.basename(file_path)}")
-        process_file(file_path,selected_file_label,loadBut)
-def process_file(file_path,selected_file_label,loadBut):
+        process_file(file_path,selected_file_label,loadBut,decay,cham)
+def process_file(file_path,selected_file_label,loadBut,decay,cham):
     # Implement your file processing logic here
     # For demonstration, let's just display the contents of the selected file
         try:
             with open(file_path, 'r') as file:
-                global timeconc,filesize, fileOpened
-                timeconc=[]
-                filesize=0
-                file_contents = csv.reader(file,delimiter=',')
-                for row in file_contents:
-                    timeconc.append(row)
-                    filesize+=1
-
-                if COMconnected==True:
-                    loadBut["state"]="normal"
+                global timeconckid,timeconcDeckid,timeconcsph,timeconcDecsph, filesize, fileOpened
+                if cham=="sph":
+                    timeconcsph=[]
+                    timeconcDecsph=[]
+                    filesize=0
+                    file_contents = csv.reader(file,delimiter=',')
+                    for row in file_contents:
+                        timeconcsph.append(row)
+                        filesize+=1
+                    for row in timeconcsph:
+                        timeconcDecsph.append([timeconcsph[0],timeconcsph[1]*math.exp(timeconcsph[0]/decay)])
+                    if COMconnected==True:
+                        loadBut["state"]="normal"
+                if cham=="kid":
+                    timeconckid=[]
+                    timeconcDeckid=[]
+                    filesize=0
+                    file_contents = csv.reader(file,delimiter=',')
+                    for row in file_contents:
+                        timeconckid.append(row)
+                        filesize+=1
+                    for row in timeconckid:
+                        timeconcDeckid.append([timeconckid[0],timeconckid[1]*math.exp(timeconckid[0]/decay)])
+                    if COMconnected==True:
+                        loadBut["state"]="normal"
                 fileOpened=True
         except Exception as e:
             selected_file_label.config(text=f"Error: {str(e)}")
