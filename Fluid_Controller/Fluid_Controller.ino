@@ -12,8 +12,8 @@
 
 #define CALIBRATION_TIME 10000
 #define FLUSH_TIME 10000
-#define MAX_ROWS 900
-#define RAMP_TIME 10000
+#define MAX_ROWS 90
+#define RAMP_TIME 0
 
 #define FULL_SPEED 255
 #define OFF 0
@@ -39,17 +39,17 @@ float water_conc = 0;
 
 int begin;
 int runStart;
-int state = 0;
+int state = 5;
 bool flowState = false;
 int numRows = 0;
-double curve[MAX_ROWS][2];
+double curve[MAX_ROWS][2]  /*={ { 0.0, 50.0 }, { 2.0, 40.0 }, { 4.0, 30.0 }, { 8.0, 20.0 } }*/;
 int curveIndex = 0;
 
-void setup()
-{
-
+void setup() {
+  
   Input = analogRead(CONCENTRATION);
-  Setpoint = 20; // initial target concentration; will be changed when the calibration curve is loaded in
+  Setpoint = 20;  // initial target concentration; will be changed when the calibration curve is loaded in
+  numRows = 4;    // TEMPORARY LINE
 
   pinMode(WATER, OUTPUT);
   digitalWrite(WATER, LOW);
@@ -62,18 +62,18 @@ void setup()
 
   analogWrite(WATER, WATER_SPEED);
   state = STOP;      // change this to be in the Stopped State once GUI is fully done
-  begin = millis(); // beginning the timer for when the code starts
+  begin = millis();  // beginning the timer for when the code starts
+  Serial.write(45);
 }
 
-void loop()
-{
+void loop() {
 
-  for (int i = 0; i < 50; i++)
-  {
+
+  for (int i = 0; i < 50; i++) {
     conc += analogRead(0);
   }
   conc = conc / 50;
-  
+
 
   /*  FLOW METER CODE
     if (newSig-prevSig>100 && !flowstate){
@@ -92,121 +92,107 @@ void loop()
     }
     */
 
-  switch (state)
-  {
-  case RUN:
 
-    if (millis() - runStart < RAMP_TIME)
-    {
+  if (state == RUN) {
+
+    if (millis() - runStart < RAMP_TIME) {
       // Setpoint = 20.0 * exp(-1 * double(millis() - begin) / 100000.0); // REPLACE WITH ACTUAL INPUT CURVE CODE
       Setpoint = curve[0][1];
 
-    }
-    else{
-      if (millis()-runStart - RAMP_TIME>(double)curve[curveIndex][0]*1000)
+    } else {
+      if (millis() - runStart - RAMP_TIME > (double)curve[curveIndex + 1][0] * 1000)
         curveIndex++;
       Setpoint = curve[curveIndex][1];
+    }
+
+    if (curveIndex >= numRows) {
+      state = STOP;  // MAYBE HAVE A MESSAGE THAT PRINTS OUT THE PROFILE HAS BEEN COMPLETED
+      Serial.println("Finished... Stopping...");
       
-    } 
-
-    if (curveIndex >= numRows)
-      state = STOP; // MAYBE HAVE A MESSAGE THAT PRINTS OUT THE PROFILE HAS BEEN COMPLETED 
-    
-
+    }
     Input = conc;
-    myPID.Compute(); // change code so that there is saturation from the PID object itself
+    myPID.Compute();  // change code so that there is saturation from the PID object itself
     if (Output > 255)
       Output = 255;
-    if (Output < 0)
-    {
+    if (Output < 0) {
       Output = 0;
     }
 
     // Serial.println((int)(conc-Setpoint)/Setpoint*100);
 
     analogWrite(SALT, (int)Output);
-    delay(5);
+
     // Serial.print(0);
     // Serial.print(" ");
     // Serial.print(25);
     // Serial.print(" ");
-    // Serial.print(Setpoint);
+    Serial.println(Setpoint);
     // Serial.print(" ");
     // Serial.println((int)(conc));
-    state = RUN;
-
-    break;
-
-  case CALIBRATE:
-    int calibrationStart = millis();
-
-    analogWrite(WATER, FULL_SPEED);
-    analogWrite(SALT, OFF);
-
-    while (millis() - calibrationStart <= CALIBRATION_TIME)
-    {
-    }
-
-    analogWrite(WATER, OFF);
-    analogWrite(SALT, OFF);
-
-    delay(1000);
-    for (int i = 0; i < 50; i++)
-    {
-      water_conc += analogRead(0);
-    }
-    water_conc = water_conc / 50;
-
-    calibrationStart = millis();
-    analogWrite(WATER, OFF);
-    analogWrite(SALT, FULL_SPEED);
-
-    while (millis() - calibrationStart <= CALIBRATION_TIME)
-    {
-    }
-
-    analogWrite(WATER, OFF);
-    analogWrite(SALT, OFF);
-
-    delay(1000);
-    for (int i = 0; i < 50; i++)
-    {
-      salt_conc += analogRead(0);
-    }
-    salt_conc = salt_conc / 50;
-
-    state = STOP;
-
-    break;
-  case FLUSH:
+  }
+  if (state == FLUSH) {
+    Serial.println("flush");
     int flushStart = millis();
 
     analogWrite(WATER, FULL_SPEED);
     analogWrite(SALT, FULL_SPEED);
 
-    while (millis() - flushStart <= 10000)
-    {
+    while (millis() - flushStart <= 10000) {
     }
     analogWrite(WATER, OFF);
     analogWrite(SALT, OFF);
     state = STOP;
-    break;
+  }
+  if (state == CALIBRATE){
+      Serial.println("calibrate");
+      int calibrationStart = millis();
 
-  case CURVELOAD:
+      analogWrite(WATER, FULL_SPEED);
+      analogWrite(SALT, OFF);
+
+      while (millis() - calibrationStart <= CALIBRATION_TIME) {
+      }
+
+      analogWrite(WATER, OFF);
+      analogWrite(SALT, OFF);
+
+      delay(1000);
+      for (int i = 0; i < 50; i++) {
+        water_conc += analogRead(0);
+      }
+      water_conc = water_conc / 50;
+
+      calibrationStart = millis();
+      analogWrite(WATER, OFF);
+      analogWrite(SALT, FULL_SPEED);
+
+      while (millis() - calibrationStart <= CALIBRATION_TIME) {
+      }
+
+      analogWrite(WATER, OFF);
+      analogWrite(SALT, OFF);
+
+      delay(1000);
+      for (int i = 0; i < 50; i++) {
+        salt_conc += analogRead(0);
+      }
+      salt_conc = salt_conc / 50;
+
+      state = STOP;
+  }
+  if (state == CURVELOAD) {
+    Serial.println("curveload");
     analogWrite(WATER, OFF);
     analogWrite(SALT, OFF);
-    while (Serial.available()==0){
-
+    while (!Serial.available()) {
     }
-    if (Serial.available() > 0)
-    {
+    if (Serial.available() > 0) {
       numRows = Serial.read();
+      Serial.println(numRows);
 
       // Define the 2D array to store received data
-      for (int i = 0; i < numRows; i++)
-      {
-        for (int j = 0; j < 2; j++)
-        { // Assuming 2 columns
+      for (int i = 0; i < numRows; i++) {
+        for (int j = 0; j < 2; j++) {  // Assuming 2 columns
           // Deserialize the received bytes into a double
           double value;
           Serial.readBytes((char *)&value, sizeof(double));
@@ -214,48 +200,45 @@ void loop()
         }
       }
     }
-    state = STOP;
-    break;
 
-  case STOP:
+    state = STOP;
+  }
+
+  if (state == STOP) {
+    
     myPID.SetMode(MANUAL);
     analogWrite(WATER, OFF);
     analogWrite(SALT, OFF);
-
-    break;
   }
-  if (Serial.available() > 0)
-  {
 
+
+
+  if (Serial.available() > 0) {
+    Serial.write("About to change state");
     // read incoming serial data:
 
     char inChar = Serial.read();
-    if (inChar == '1')
-    {
+    if (inChar == '1') {
       state = RUN;
       Serial.println(RUN);
       myPID.SetMode(AUTOMATIC);
       runStart = millis();
-    }
-    else if (inChar == '2'){
+    } else if (inChar == '2') {
       Serial.println(CALIBRATE);
       state = CALIBRATE;
-    }
-    else if (inChar == '3'){
+    } else if (inChar == '3') {
       Serial.println(FLUSH);
       state = FLUSH;
-    }
-    else if (inChar == '4'){
+    } else if (inChar == '4') {
       Serial.println(CURVELOAD);
       state = CURVELOAD;
-    }
-    else if (inChar == '5'){
-      Serial.println(STOP);
+    } else if (inChar == '5') {
+      Serial.println("Stopping");
       state = STOP;
     }
-    else {
-      Serial.print("Invalid Command... Stopping");
-      state = STOP;
-    }
+    // else {
+    //   Serial.print("Invalid Command... Stopping");
+    //   state = STOP;
+    // }
   }
 }
