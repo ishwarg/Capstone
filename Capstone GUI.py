@@ -60,19 +60,18 @@ class Plot(Frame):
                         np.ones(max_points, dtype=float)*np.nan, 
                         lw=2)
         global anim1,anim2,anim3,anim4
-        anim1 = animation.FuncAnimation(fig, (lambda i, port=(arduino if COMconnected else ""),line=lineSph:self.animate(port,i,line)),  frames=200, interval=20,blit=False)
-        anim2 = animation.FuncAnimation(fig, (lambda i, port=(arduino if COMconnected else ""),line=lineSpher:self.animate(port,i,line)),  frames=200, interval=20,blit=False)
-        anim3 = animation.FuncAnimation(fig, (lambda i, port=(arduino if COMconnected else ""),line=lineKid:self.animate(port,i,line)),  frames=200, interval=20,blit=False)
-        anim4 = animation.FuncAnimation(fig, (lambda i, port=(arduino if COMconnected else ""),line=lineKider:self.animate(port,i,line)),  frames=200, interval=20,blit=False)
+        anim1 = animation.FuncAnimation(fig, (lambda i, port=(arduino if COMconnected else ""),line=lineSph,lineer=lineSpher:self.animate(port,i,line,lineer)),  frames=200, interval=20,blit=False)
+        anim3 = animation.FuncAnimation(fig, (lambda i, port=(arduino if COMconnected else ""),line=lineKid,lineer=lineKider:self.animate(port,i,line,lineer)),  frames=200, interval=20,blit=False)
 
         plt.show()
 
-    def animate(self,port,i,line):
+    def animate(self,port,i,line,lineer):
         if port=="":
             line.set_ydata(0)
             return line,
         else:
-            y = port.readline()  # I assume this 
+            row = port.readline()
+            yer=timeconc# I assume this 
             old_y = line.get_ydata()  # grab current data
             new_y = np.r_[old_y[1:], y]  # stick new data on end of old data
             line.set_ydata(new_y)        # set the new ydata
