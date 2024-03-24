@@ -61,7 +61,7 @@ void setup()
   myPID.SetMode(MANUAL);
 
   analogWrite(WATER, WATER_SPEED);
-  state = RUN;      // change this to be in the Stopped State once GUI is fully done
+  state = STOP;      // change this to be in the Stopped State once GUI is fully done
   begin = millis(); // beginning the timer for when the code starts
 }
 
@@ -73,13 +73,7 @@ void loop()
     conc += analogRead(0);
   }
   conc = conc / 50;
-  Serial.print(0);
-  Serial.print(" ");
-  Serial.print(25);
-  Serial.print(" ");
-  Serial.print(Setpoint);
-  Serial.print(" ");
-  Serial.println((int)(conc));
+  
 
   /*  FLOW METER CODE
     if (newSig-prevSig>100 && !flowstate){
@@ -132,6 +126,13 @@ void loop()
 
     analogWrite(SALT, (int)Output);
     delay(5);
+    // Serial.print(0);
+    // Serial.print(" ");
+    // Serial.print(25);
+    // Serial.print(" ");
+    // Serial.print(Setpoint);
+    // Serial.print(" ");
+    // Serial.println((int)(conc));
     state = RUN;
 
     break;
@@ -232,18 +233,29 @@ void loop()
     if (inChar == '1')
     {
       state = RUN;
+      Serial.println(RUN);
       myPID.SetMode(AUTOMATIC);
       runStart = millis();
     }
-    else if (inChar == '2')
+    else if (inChar == '2'){
+      Serial.println(CALIBRATE);
       state = CALIBRATE;
-    else if (inChar == '3')
+    }
+    else if (inChar == '3'){
+      Serial.println(FLUSH);
       state = FLUSH;
-    else if (inChar == '4')
+    }
+    else if (inChar == '4'){
+      Serial.println(CURVELOAD);
       state = CURVELOAD;
-    else if (inChar == '5')
+    }
+    else if (inChar == '5'){
+      Serial.println(STOP);
       state = STOP;
-    else
+    }
+    else {
+      Serial.print("Invalid Command... Stopping");
       state = STOP;
+    }
   }
 }
