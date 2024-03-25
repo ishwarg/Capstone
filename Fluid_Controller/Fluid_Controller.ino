@@ -42,7 +42,7 @@ int runStart;
 int state = 5;
 bool flowState = false;
 int numRows = 0;
-double curve[MAX_ROWS][2]  /*={ { 0.0, 50.0 }, { 2.0, 40.0 }, { 4.0, 30.0 }, { 8.0, 20.0 } }*/;
+double curve[MAX_ROWS][2]  ={ { 0.0, 50.0 }, { 2.0, 40.0 }, { 4.0, 30.0 }, { 8.0, 20.0 } };
 int curveIndex = 0;
 
 void setup() {
@@ -108,6 +108,7 @@ void loop() {
     if (curveIndex >= numRows) {
       state = STOP;  // MAYBE HAVE A MESSAGE THAT PRINTS OUT THE PROFILE HAS BEEN COMPLETED
       Serial.println("Finished... Stopping...");
+      curveIndex = 0;
       
     }
     Input = conc;
@@ -214,7 +215,7 @@ void loop() {
 
 
   if (Serial.available() > 0) {
-    Serial.write("About to change state");
+    
     // read incoming serial data:
 
     char inChar = Serial.read();
