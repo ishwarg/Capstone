@@ -114,7 +114,7 @@ class Sidebar(Frame):
         
         self.COM=Label(self,text="COM Port")
         self.COMlist=OptionMenu(self,clicked,*ports)
-        self.buttonCOM=Button(self,text="Connect",command=lambda:connectCOM(clicked,self.buttonCali,self.buttonRun,self.buttonFlush))
+        self.buttonCOM=Button(self,text="Connect",command=lambda:connectCOM(clicked,self.buttonCali,self.buttonRun,self.buttonFlush,self.buttonLoadCurveSphere,self.buttonLoadCurveKidney))
 
         dec=StringVar()
         dec.set("6588")
@@ -164,6 +164,7 @@ def flush(port):
 def loadCurve(port,filesize,curve,runBut,cham):
     if cham=="sph":
         port.write((4).to_bytes(1,"big"))
+        
     else:
         port.write((4).to_bytes(1,"big"))
     port.write(filesize.to_bytes(2,"big"))
@@ -230,14 +231,18 @@ def listPorts():
         print("{}: {} ".format(port, desc))
         L.append("{}: {}".format(port, desc))
     return L
-def connectCOM(port,calBut,runBut,flushBut):
+def connectCOM(port,calBut,runBut,flushBut,loadBut1,loadBut2):
     global arduino, COMconnected
     p=parse.parse("{}: {}",port.get())
     arduino=serial.Serial(p[0],9600)
     calBut["state"]="normal"
     flushBut["state"]="normal"
-    if kidfileOpened==True or sphfileOpened==True:
+    if kidfileOpened==True:
         runBut["state"]="normal"
+        loadBut2["state"]="normal"
+    if sphfileOpened==True:
+        runBut["state"]="normal"
+        loadBut1["state"]="normal"
     COMconnected=True
     
 global ports
