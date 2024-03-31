@@ -15,6 +15,7 @@ import os
 import math
 import threading
 import time
+import queue
 
 class GUI(Frame):
     def __init__(self, master):
@@ -45,7 +46,7 @@ class SerialManager:
             if self.ser.in_waiting > 0:
                 received_data = self.ser.readline().decode().strip()
                 self.app_instance.update_serial_text(received_data)  # Update the GUI text box
-                
+                self.app_instance.queue.put(received_data)
     def close(self):
         self.ser.close()        
        
@@ -64,22 +65,24 @@ class MainPage(Frame):
         self.dec.set("6588")
         self.entLab=Label(self,text="Decay Half-life (s)")
         self.ent=Entry(self,textvariable=self.dec)
-
+        self.queue=queue.Queue(0)
+        
         self.buttonOpenSphere=Button(self,text="Open Sphere File",command=lambda:self.openFile(self.selFileSphere,"sph"))
         self.selFileSphere=Label(self,text="No File Selected")
-        self.buttonLoadCurveSphere=Button(self,text="Load Sphere Curve",state="disabled",command=lambda:self.loadCurve(filesizesph,timeconcsph,"sph"))
+        self.buttonLoadCurveSphere=Button(self,text="Load Sphere Curve",state="disabled",command=lambda:self.loadCurve("sph"))
         
         self.buttonOpenKidney=Button(self,text="Open Kidney File",command=lambda:self.openFile(self.selFileKidney,"kid"))
         self.selFileKidney=Label(self,text="No File Selected")
-        self.buttonLoadCurveKidney=Button(self,text="Load Kidney Curve",state="disabled",command=lambda:self.loadCurve(filesizekid,timeconckid,"kid"))
+        self.buttonLoadCurveKidney=Button(self,text="Load Kidney Curve",state="disabled",command=lambda:self.loadCurve("kid"))
 
         self.buttonCali=Button(self,text="Calibrate",state="disabled",command=self.calibrate)
         self.buttonRun=Button(self,text="Run Test",state="disabled",command=self.startTest)
         self.buttonStop=Button(self,text="Stop Test",state="disabled",command=self.stopTest)
         self.buttonFlush=Button(self,text="Flush System",state="disabled",command=self.flush)
-
-        self.serialMonitor=Text(self,height=1,width=3)
         
+        self.serialMonitor=Text(self,height=25,width=50)
+
+        self.activitycheck=simpledialog.askstring("Title
         self.fig=Figure(figsize=(5,5),dpi=100)
         self.axSph=self.fig.add_subplot(221)
         self.axSpher=self.fig.add_subplot(222)
@@ -122,7 +125,7 @@ class MainPage(Frame):
             self.lineKid.set_data([0,0])
             self.lineKider.set_data([0,0])
         else:
-            row = port.readline()
+            row = self.queue.get()
             t=float(row[0])
             concSph=float(row[1])*math.exp(-t/float(self.dec.get()))
             concKid=float(row[2])*math.exp(-t/float(self.dec.get()))
@@ -165,11 +168,11 @@ class MainPage(Frame):
 
  #       data_to_send = self.send_text.get("1.0", "end-1c") + '\n'
         self.serial_manager.send_data(data_to_send)
-        print("Data sent to Arduino")
+        #print("Data sent to Arduino")
 
     def update_serial_text(self, received_data):
-        self.serialMonitor.insert(tk.END, received_data + "\n")
-        self.serialMonitor.see(tk.END)  # Scroll to the bottom of the text box
+        self.serialMonitor.insert(END, received_data + "\n")
+        self.serialMonitor.see(END)  # Scroll to the bottom of the text box
     def startTest(self):
         global testOn
         self.send_data("1")
@@ -179,16 +182,20 @@ class MainPage(Frame):
         self.send_data("2")
     def flush(self):
         self.send_data("3")
-    def loadCurve(self,filesize,curve,cham):
+    def loadCurve(self,cham):
         if cham=="sph":
             self.send_data("4")
-            self.send_data(str(filesize))
+            self.send_data(str(self.filesizesph))
+            for x in self.timeconcDecsph:
+                self.send_data(str(x[0]))
+                self.send_data(str(x[1]))
         else:
             self.send_data("4")
-            self.send_data(str(filesize))
-        for x in curve:
-            self.send_data(str(x[0]))
-            self.send_data(str(x[1]))
+            self.send_data(str(self.filesizekid))
+            for x in self.timeconcDeckid:
+                self.send_data(str(x[0]))
+                self.send_data(str(x[1]))
+
         self.buttonRun.config(state=NORMAL)
 
     def stopTest(self):
@@ -202,40 +209,44 @@ class MainPage(Frame):
     def process_file(self,file_path,selected_file_label,cham):
         # Implement your file processing logic here
         # For demonstration, let's just display the contents of the selected file
+
+
             try:
                 with open(file_path, 'r') as file:
-                    global timeconckid,timeconckidt,timeconckidy,timeconcDeckid,timeconcsph,timeconcspht,timeconcsphy,timeconcDecsph, filesizekid,filesizesph, kidfileOpened, sphfileOpened
+                    global kidfileOpened, sphfileOpened
                     if cham=="sph":
-                        timeconcDecsph=[]
-                        timeconcspht=[]
-                        timeconcsphy=[]
-                        filesizesph=0
+                        self.timeconcDecsph=[]
+                        self.timeconcspht=[]
+                        self.timeconcsphy=[]
+                        self.filesizesph=0
+                        self.timeconcsph=[]
                         file_contents = csv.reader(file,delimiter=',')
-                        timeconcsph=file_contents
                         for row in file_contents:
-                            timeconcspht.append(float(row[0]))
-                            timeconcsphy.append(float(row[1]))
-                            filesizesph+=1
-                            timeconcDecsph.append([float(row[0]),float(row[1])*math.exp(float(row[0])/float(self.dec.get()))])
-                        self.axSph.plot(timeconcspht,timeconcsphy)    
+                            self.timeconcsph.append(row)
+                            self.timeconcspht.append(float(row[0]))
+                            self.timeconcsphy.append(float(row[1]))
+                            self.filesizesph+=1
+                            self.timeconcDecsph.append([float(row[0]),float(row[1])*math.exp(float(row[0])/float(self.dec.get()))])
+                        self.axSph.plot(self.timeconcspht,self.timeconcsphy)    
                         self.canvas.draw()
                         if COMconnected==True:
                             self.buttonLoadCurveSphere.config(state=NORMAL)
                         sphfileOpened=True
 
                     if cham=="kid":
-                        timeconcDeckid=[]
-                        timeconckidt=[]
-                        timeconckidy=[]
-                        filesizekid=0
+                        self.timeconcDeckid=[]
+                        self.timeconckidt=[]
+                        self.timeconckidy=[]
+                        self.filesizekid=0
+                        self.timeconckid=[]
                         file_contents = csv.reader(file,delimiter=',')
-                        timeconckid=file_contents
                         for row in file_contents:
-                            timeconckidt.append(float(row[0]))
-                            timeconckidy.append(float(row[1]))
-                            filesizekid+=1
-                            timeconcDeckid.append([float(row[0]),float(row[1])*math.exp(float(row[0])/float(self.dec.get()))])
-                        self.axKid.plot(timeconckidt,timeconckidy)
+                            self.timeconckid.append(row)
+                            self.timeconckidt.append(float(row[0]))
+                            self.timeconckidy.append(float(row[1]))
+                            self.filesizekid+=1
+                            self.timeconcDeckid.append([float(row[0]),float(row[1])*math.exp(float(row[0])/float(self.dec.get()))])
+                        self.axKid.plot(self.timeconckidt,self.timeconckidy)
                         self.canvas.draw()
                         if COMconnected==True:
                             self.buttonLoadCurveKidney.config(state=NORMAL)
@@ -254,7 +265,7 @@ class MainPage(Frame):
         port=self.clicked.get()
         try:
             p=parse.parse("{}: {}",port)
-            self.serial_manager=SerialManager(port,self)
+            self.serial_manager=SerialManager(p[0],self)
             self.buttonCali.config(state=NORMAL)
             self.buttonFlush.config(state=NORMAL)
             if kidfileOpened==True:
