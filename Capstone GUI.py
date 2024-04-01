@@ -85,8 +85,10 @@ class SerialManager:
                     self.app_instance.lineKider.set_xdata(new_line2ert)        # set the new ydata
 
                     self.app_instance.canvas.draw()
+                    self.app_instance.filewrite.writeline(str(t)+","+str(rawSph)+str(concSph)+","+str(rawKid)+","+str(concKid))
     def close(self):
-        self.ser.close()        
+        self.ser.close()
+        self.app_instance.buttonCOM.config(text="Connect",command=self.app_instance.connectCOM)
        
 class MainPage(Frame):
     def __init__(self,master):
@@ -104,8 +106,17 @@ class MainPage(Frame):
 
         self.dec=StringVar()
         self.dec.set("0.0001518")
+        self.filewritename=StringVar()
+        self.activity=StringVar()
+        self.activityTime=StringVar()
         self.entLab=Label(self,text="Decay Constant(Hz)")
         self.ent=Entry(self,textvariable=self.dec)
+        self.entLabfile=Label(self,text="Created File Name")
+        self.entfile=Entry(self,textvariable=self.filewritename)
+        self.entLabActivity=Label(self,text="Activity Measurement (MBq/mL)")
+        self.entActivity=Entry(self,textvariable=self.activity)
+        self.entLabActivityTime=Label(self,text="Measurement Time (HH:MM:SS)")
+        self.entActivityTime=Entry(self,textvariable=self.activityTime)
         
         self.buttonOpenSphere=Button(self,text="Open Sphere File",command=lambda:self.openFile(self.selFileSphere,"sph"))
         self.selFileSphere=Label(self,text="No File Selected")
@@ -120,7 +131,7 @@ class MainPage(Frame):
         self.buttonStop=Button(self,text="Stop Test",state="disabled",command=self.stopTest)
         self.buttonFlush=Button(self,text="Flush System",state="disabled",command=self.flush)
         
-        self.serialMonitor=Text(self,height=25,width=50)
+        self.serialMonitor=Text(self,height=9,width=50)
 
         #self.activitycheck=dialog.simpledialog.askstring("Activity", "Activity Measurement (MBq/mL):")
         self.fig=Figure(figsize=(5,5),dpi=100)
@@ -134,28 +145,34 @@ class MainPage(Frame):
         self.lineKider,=self.axKider.plot([],[],lw=2)
         self.canvas=FigureCanvasTkAgg(self.fig,master=self)
         self.toolbarFrame=Frame(self)
-        self.toolbarFrame.grid(row=8,column=4,columnspan=2,padx=5,pady=5)
+        self.toolbarFrame.grid(row=12,column=4,columnspan=2,padx=5,pady=5)
         self.toolbar = NavigationToolbar2Tk(self.canvas,self.toolbarFrame)
        
         plt.show()
         
-        self.canvas.get_tk_widget().grid(row=0, rowspan=8,column=4,columnspan=2,padx=5,pady=5)
+        self.canvas.get_tk_widget().grid(row=0, rowspan=11,column=4,columnspan=2,padx=5,pady=5)
         self.COM.grid(row=0,column=0,padx=5,pady=5)
         self.COMlist.grid(row=0,column=1,padx=5,pady=5)
         self.buttonCOM.grid(row=0,column=2,padx=5,pady=5)
         self.entLab.grid(row=1,column=0,padx=5,pady=5)
         self.ent.grid(row=1,column=1,padx=5,pady=5)
-        self.selFileSphere.grid(row=2,column=0,padx=5,pady=5)
-        self.buttonOpenSphere.grid(row=2,column=1,padx=5,pady=5)
-        self.buttonLoadCurveSphere.grid(row=2,column=2,padx=5,pady=5)
-        self.selFileKidney.grid(row=3,column=0,padx=5,pady=5)
-        self.buttonOpenKidney.grid(row=3,column=1,padx=5,pady=5)
-        self.buttonLoadCurveKidney.grid(row=3,column=2,padx=5,pady=5)
-        self.buttonCali.grid(row=4,column=1,padx=5,pady=5)
-        self.buttonRun.grid(row=5,column=0,padx=5,pady=5)
-        self.buttonStop.grid(row=5,column=1,padx=5,pady=5)
-        self.buttonFlush.grid(row=6,column=1,padx=5,pady=5)
-        self.serialMonitor.grid(row=7,column=0,columnspan=3,padx=5,pady=5)
+        self.entLabfile.grid(row=2,column=0,padx=5,pady=5)
+        self.entfile.grid(row=2,column=1,padx=5,pady=5)
+        self.entLabActivity.grid(row=3,column=0,padx=5,pady=5)
+        self.entActivity.grid(row=3,column=1,padx=5,pady=5)
+        self.entLabActivityTime.grid(row=4,column=0,padx=5,pady=5)
+        self.entActivityTime.grid(row=4,column=1,padx=5,pady=5)
+        self.selFileSphere.grid(row=5,column=0,padx=5,pady=5)
+        self.buttonOpenSphere.grid(row=5,column=1,padx=5,pady=5)
+        self.buttonLoadCurveSphere.grid(row=5,column=2,padx=5,pady=5)
+        self.selFileKidney.grid(row=6,column=0,padx=5,pady=5)
+        self.buttonOpenKidney.grid(row=6,column=1,padx=5,pady=5)
+        self.buttonLoadCurveKidney.grid(row=6,column=2,padx=5,pady=5)
+        self.buttonCali.grid(row=7,column=1,padx=5,pady=5)
+        self.buttonRun.grid(row=8,column=0,padx=5,pady=5)
+        self.buttonStop.grid(row=8,column=1,padx=5,pady=5)
+        self.buttonFlush.grid(row=9,column=1,padx=5,pady=5)
+        self.serialMonitor.grid(row=10,column=0,columnspan=3,padx=5,pady=5)
         self.grid(padx=25,pady=25)
 
     def send_data(self,data_to_send):
@@ -174,6 +191,8 @@ class MainPage(Frame):
         self.send_data("1")
         self.buttonStop.config(state=NORMAL)
         self.startTime=time.time()
+        self.filewrite=open(self.filewritename.get()+".csv","x")
+        self.filewrite.writeline("Time (s),Sphere Concentration, Sphere Activity, Kidney Concentration, Kidney Activity")
         self.testOn=True
     def calibrate(self):
         self.send_data("2")
@@ -197,6 +216,7 @@ class MainPage(Frame):
 
     def stopTest(self):
         self.send_data("5")
+        self.filewrite.close()
         
     def openFile(self,selected_file_label,cham):
         file_path = filedialog.askopenfilename(title="Select a File", filetypes=[("CSV", "*.csv")])
@@ -263,13 +283,14 @@ class MainPage(Frame):
             self.serial_manager=SerialManager(p[0],self)
             self.buttonCali.config(state=NORMAL)
             self.buttonFlush.config(state=NORMAL)
-            if kidfileOpened==True:
+            if self.kidfileOpened==True:
                 self.buttonRun.config(state=NORMAL)
                 self.buttonLoadCurveKidney.config(state=NORMAL)
-            if sphfileOpened==True:
+            if self.sphfileOpened==True:
                 self.buttonRun.config(state=NORMAL)
                 self.buttonLoadCurveSphere.config(state=NORMAL)
             self.COMconnected=True
+            self.buttonCOM.config(text="Disconnect",command=self.serial_manager.close)
         except serial.SerialException:
             print("Failed to connect")
             
