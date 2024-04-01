@@ -37,23 +37,64 @@ class SerialManager:
         self.app_instance = app_instance
         self.thread_read = threading.Thread(target=self.read_data_thread, daemon=True)
         self.thread_read.start()
-
+        
     def send_data(self, data):
         self.ser.write(data.encode())
 
     def read_data_thread(self):
         while True:
             if self.ser.in_waiting > 0:
-                received_data = self.ser.readline().decode().strip()
-                self.app_instance.update_serial_text(received_data)  # Update the GUI text box
-                self.app_instance.queue.put(received_data)
+                if self.app_instance.testOn:
+                    received_data = self.ser.readline().decode().strip()
+                    self.app_instance.update_serial_text(received_data)  # Update the GUI text box
+                    row="{} {} {}".format(t,rawSph,rawKid)
+                    t=float(row[0])
+                    concSph=float(row[1])*math.exp(-t/float(self.app_instance.dec.get()))
+                    concKid=float(row[2])*math.exp(-t/float(self.app_instance.dec.get()))
+                    tindsph=(np.abs(self.app_instance.timeconcspht - t)).argmin()
+                    spher=(-self.app_instance.timeconcsphy[tind]+concSph)/self.app_instance.timeconcsphy[tind]
+                    tindkid=(np.abs(self.app_instance.timeconckidt - t)).argmin()
+                    kider=(-self.app_instance.timeconckidy[tind]+concKid)/self.app_instance.timeconckidy[tind]
+                    
+                    old_line1y = self.app_instance.lineSph.get_ydata()  # grab current data
+                    new_line1y = np.r_[old_line1y[1:], concSph]  # stick new data on end of old data
+                    self.app_instance.lineSph.set_ydata(new_line1y)        # set the new ydata
+                    old_line1t = self.app_instance.lineSph.get_xdata()  # grab current data
+                    new_line1t = np.r_[old_line1t[1:], t]  # stick new data on end of old data
+                    self.app_instance.lineSph.set_xdata(new_line1t)        # set the new ydata
+                    
+                    old_line2y = self.app_instance.lineKid.get_ydata()  # grab current data
+                    new_line2y = np.r_[old_line2y[1:], concKid]  # stick new data on end of old data
+                    self.app_instance.lineKid.set_ydata(new_line2y)        # set the new ydata
+                    old_line2t = self.app_instance.lineKid.get_xdata()  # grab current data
+                    new_line2t = np.r_[old_line1t[2:], t]  # stick new data on end of old data
+                    self.app_instance.lineKid.set_xdata(new_line2t)        # set the new ydata
+                    
+                    old_line1ery = self.app_instance.lineSpher.get_ydata()  # grab current data
+                    new_line1ery = np.r_[old_line1ery[1:], spher]  # stick new data on end of old data
+                    self.app_instance.lineSpher.set_ydata(new_line1ery)        # set the new ydata
+                    old_line1ert = self.app_instance.lineSpher.get_xdata()  # grab current data
+                    new_line1ert = np.r_[old_line1ert[1:], t]  # stick new data on end of old data
+                    self.app_instance.lineSpher.set_xdata(new_line1ert)        # set the new ydata
+                    
+                    old_line2ery = self.app_instance.lineKider.get_ydata()  # grab current data
+                    new_line2ery = np.r_[old_line2ery[1:], kider]  # stick new data on end of old data
+                    self.app_instance.lineKider.set_ydata(new_line2ery)        # set the new ydata
+                    old_line2ert = self.app_instance.lineKider.get_xdata()  # grab current data
+                    new_line2ert = np.r_[old_line2ert[1:], t]  # stick new data on end of old data
+                    self.app_instance.lineKider.set_xdata(new_line2ert)        # set the new ydata
+
+                    self.app_instance.canvas.draw()
     def close(self):
         self.ser.close()        
        
 class MainPage(Frame):
     def __init__(self,master):
         Frame.__init__(self,master)
-        
+        self.COMconnected=False
+        self.kidfileOpened=False
+        self.sphfileOpened=False
+        self.testOn=False
         self.clicked = StringVar()
         self.clicked.set("")
         self.ports=self.listPorts()
@@ -62,10 +103,9 @@ class MainPage(Frame):
         self.buttonCOM=Button(self,text="Connect",command=self.connectCOM)
 
         self.dec=StringVar()
-        self.dec.set("6588")
-        self.entLab=Label(self,text="Decay Half-life (s)")
+        self.dec.set("0.0001518")
+        self.entLab=Label(self,text="Decay Constant(Hz)")
         self.ent=Entry(self,textvariable=self.dec)
-        self.queue=queue.Queue(0)
         
         self.buttonOpenSphere=Button(self,text="Open Sphere File",command=lambda:self.openFile(self.selFileSphere,"sph"))
         self.selFileSphere=Label(self,text="No File Selected")
@@ -82,7 +122,7 @@ class MainPage(Frame):
         
         self.serialMonitor=Text(self,height=25,width=50)
 
-        self.activitycheck=simpledialog.askstring("Title
+        #self.activitycheck=dialog.simpledialog.askstring("Activity", "Activity Measurement (MBq/mL):")
         self.fig=Figure(figsize=(5,5),dpi=100)
         self.axSph=self.fig.add_subplot(221)
         self.axSpher=self.fig.add_subplot(222)
@@ -96,8 +136,7 @@ class MainPage(Frame):
         self.toolbarFrame=Frame(self)
         self.toolbarFrame.grid(row=8,column=4,columnspan=2,padx=5,pady=5)
         self.toolbar = NavigationToolbar2Tk(self.canvas,self.toolbarFrame)
-        max_points = 50
-        anim = animation.FuncAnimation(self.fig, (lambda i, port=(arduino if COMconnected else ""):self.animate(i,port)),  frames=200, interval=20,blit=False)
+       
         plt.show()
         
         self.canvas.get_tk_widget().grid(row=0, rowspan=8,column=4,columnspan=2,padx=5,pady=5)
@@ -118,49 +157,7 @@ class MainPage(Frame):
         self.buttonFlush.grid(row=6,column=1,padx=5,pady=5)
         self.serialMonitor.grid(row=7,column=0,columnspan=3,padx=5,pady=5)
         self.grid(padx=25,pady=25)
-    def animate(self,i):
-        if testOn==False:
-            self.lineSph.set_data([0,0])
-            self.lineSpher.set_data([0,0])
-            self.lineKid.set_data([0,0])
-            self.lineKider.set_data([0,0])
-        else:
-            row = self.queue.get()
-            t=float(row[0])
-            concSph=float(row[1])*math.exp(-t/float(self.dec.get()))
-            concKid=float(row[2])*math.exp(-t/float(self.dec.get()))
-            tindsph=(np.abs(timeconcspht - t)).argmin()
-            spher=(-timeconcsphy[tind]+concSph)/timeconcsphy[tind]
-            tindkid=(np.abs(timeconckidt - t)).argmin()
-            kider=(-timeconckidy[tind]+concKid)/timeconckidy[tind]# I assume this 
 
-            old_line1y = self.lineSph.get_ydata()  # grab current data
-            new_line1y = np.r_[old_line1y[1:], concSph]  # stick new data on end of old data
-            self.lineSph.set_ydata(new_line1y)        # set the new ydata
-            old_line1t = self.lineSph.get_xdata()  # grab current data
-            new_line1t = np.r_[old_line1t[1:], t]  # stick new data on end of old data
-            self.lineSph.set_xdata(new_line1t)        # set the new ydata
-            
-            old_line2y = self.lineKid.get_ydata()  # grab current data
-            new_line2y = np.r_[old_line2y[1:], concKid]  # stick new data on end of old data
-            self.lineKid.set_ydata(new_line2y)        # set the new ydata
-            old_line2t = self.lineKid.get_xdata()  # grab current data
-            new_line2t = np.r_[old_line1t[2:], t]  # stick new data on end of old data
-            self.lineKid.set_xdata(new_line2t)        # set the new ydata
-            
-            old_line1ery = self.lineSpher.get_ydata()  # grab current data
-            new_line1ery = np.r_[old_line1ery[1:], spher]  # stick new data on end of old data
-            self.lineSpher.set_ydata(new_line1ery)        # set the new ydata
-            old_line1ert = self.lineSpher.get_xdata()  # grab current data
-            new_line1ert = np.r_[old_line1ert[1:], t]  # stick new data on end of old data
-            self.lineSpher.set_xdata(new_line1ert)        # set the new ydata
-            
-            old_line2ery = self.lineKider.get_ydata()  # grab current data
-            new_line2ery = np.r_[old_line2ery[1:], kider]  # stick new data on end of old data
-            self.lineKider.set_ydata(new_line2ery)        # set the new ydata
-            old_line2ert = self.lineKider.get_xdata()  # grab current data
-            new_line2ert = np.r_[old_line2ert[1:], t]  # stick new data on end of old data
-            self.lineKider.set_xdata(new_line2ert)        # set the new ydata
     def send_data(self,data_to_send):
         if not hasattr(self, 'serial_manager'):
             print("Not connected to serial port")
@@ -174,10 +171,10 @@ class MainPage(Frame):
         self.serialMonitor.insert(END, received_data + "\n")
         self.serialMonitor.see(END)  # Scroll to the bottom of the text box
     def startTest(self):
-        global testOn
         self.send_data("1")
         self.buttonStop.config(state=NORMAL)
-        testOn=True
+        self.startTime=time.time()
+        self.testOn=True
     def calibrate(self):
         self.send_data("2")
     def flush(self):
@@ -213,7 +210,6 @@ class MainPage(Frame):
 
             try:
                 with open(file_path, 'r') as file:
-                    global kidfileOpened, sphfileOpened
                     if cham=="sph":
                         self.timeconcDecsph=[]
                         self.timeconcspht=[]
@@ -229,9 +225,9 @@ class MainPage(Frame):
                             self.timeconcDecsph.append([float(row[0]),float(row[1])*math.exp(float(row[0])/float(self.dec.get()))])
                         self.axSph.plot(self.timeconcspht,self.timeconcsphy)    
                         self.canvas.draw()
-                        if COMconnected==True:
+                        if self.COMconnected==True:
                             self.buttonLoadCurveSphere.config(state=NORMAL)
-                        sphfileOpened=True
+                        self.sphfileOpened=True
 
                     if cham=="kid":
                         self.timeconcDeckid=[]
@@ -248,9 +244,9 @@ class MainPage(Frame):
                             self.timeconcDeckid.append([float(row[0]),float(row[1])*math.exp(float(row[0])/float(self.dec.get()))])
                         self.axKid.plot(self.timeconckidt,self.timeconckidy)
                         self.canvas.draw()
-                        if COMconnected==True:
+                        if self.COMconnected==True:
                             self.buttonLoadCurveKidney.config(state=NORMAL)
-                        kidfileOpened=True
+                        self.kidfileOpened=True
             except Exception as e:
                 selected_file_label.config(text=f"Error: {str(e)}")
     def listPorts(self):
@@ -261,7 +257,6 @@ class MainPage(Frame):
             L.append("{}: {}".format(port, desc))
         return L
     def connectCOM(self):
-        global COMconnected
         port=self.clicked.get()
         try:
             p=parse.parse("{}: {}",port)
@@ -274,14 +269,10 @@ class MainPage(Frame):
             if sphfileOpened==True:
                 self.buttonRun.config(state=NORMAL)
                 self.buttonLoadCurveSphere.config(state=NORMAL)
-            COMconnected=True
+            self.COMconnected=True
         except serial.SerialException:
             print("Failed to connect")
             
-COMconnected=False
-kidfileOpened=False
-sphfileOpened=False
-testOn=False
 
 root=Tk()
 gui=GUI(root)
