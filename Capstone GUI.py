@@ -13,7 +13,10 @@ import numpy as np
 import struct
 import os
 import math
- 
+import threading
+import time
+import queue
+
 class GUI(Frame):
     def __init__(self, master):
         Frame.__init__(self)
@@ -24,233 +27,274 @@ class GUI(Frame):
         self.createwidgets()
     def createwidgets(self):
         self.title=Label(self,text="Dynamic Phantom GUI", font=("Arial",30))
-        self.side=Sidebar(self)
-        self.plot=Plot(self)
+        self.side=MainPage(self)
         self.title.grid(row=0,column=0, columnspan=5)
         self.side.grid(row=1, rowspan=2, column=0)
-        self.plot.grid(row=1,rowspan=2, column=1, columnspan=4)
-class Plot(Frame):
-    def __init__(self,master):
-        Frame.__init__(self,master)
-        fig=Figure(figsize=(5,5),dpi=100)
-        global axSph,axKid, canvas
-        axSph=fig.add_subplot(221)
-        axSpher=fig.add_subplot(222)
-        axKid=fig.add_subplot(223)
-        axKider=fig.add_subplot(224)
-        lineSph,=axSph.plot([],[],lw=2)
-        lineSpher,=axSpher.plot([],[],lw=2)
-        lineKid,=axKid.plot([],[],lw=2)
-        lineKider,=axKider.plot([],[],lw=2)
-        canvas=FigureCanvasTkAgg(fig,master=self)
-        canvas.get_tk_widget().pack()
-        toolbar = NavigationToolbar2Tk(canvas,self)
-        max_points = 50
-        # fill initial artist with nans (so nothing draws)
-##        lineSph, = axSph.plot(np.arange(max_points), 
-##                        np.ones(max_points, dtype=float)*np.nan, 
-##                        lw=2)
-##        lineSpher, = axSpher.plot(np.arange(max_points), 
-##                        np.ones(max_points, dtype=float)*np.nan, 
-##                        lw=2)
-##        lineKid, = axKid.plot(np.arange(max_points), 
-##                        np.ones(max_points, dtype=float)*np.nan, 
-##                        lw=2)
-##        lineKider, = axKider.plot(np.arange(max_points), 
-##                        np.ones(max_points, dtype=float)*np.nan, 
-##                        lw=2)
-        anim = animation.FuncAnimation(fig, (lambda i, port=(arduino if COMconnected else ""),line1=lineSph,line1er=lineSpher,line2=lineKid,line2er=lineKider:self.animate(port,i,line1,line1er,line2,line2er)),  frames=200, interval=20,blit=False)
-        plt.show()
+class SerialManager:
+    def __init__(self, port, app_instance):
+        self.serial_port = port
+        self.ser = serial.Serial(port, 9600, timeout=1)
+        self.app_instance = app_instance
+        self.thread_read = threading.Thread(target=self.read_data_thread, daemon=True)
+        self.thread_read.start()
+        
+    def send_data(self, data):
+        self.ser.write(data.encode())
 
-    def animate(self,port,i,line1,line1er,line2,line2er):
-        if testOn==False:
-            line1.set_data([0,0])
-            line1er.set_data([0,0])
-            line2.set_data([0,0])
-            line2er.set_data([0,0])
-        else:
-            row = port.readline()
-            t=float(row[0])
-            concSph=float(row[1])*math.exp(-t/float(dec))
-            concKid=float(row[2])*math.exp(-t/float(dec))
-            tindsph=(np.abs(timeconcspht - t)).argmin()
-            spher=(-timeconcsphy[tind]+concSph)/timeconcsphy[tind]
-            tindkid=(np.abs(timeconckidt - t)).argmin()
-            kider=(-timeconckidy[tind]+concKid)/timeconckidy[tind]# I assume this 
-            old_line1y = line1.get_ydata()  # grab current data
-            new_line1y = np.r_[old_line1y[1:], concSph]  # stick new data on end of old data
-            line1.set_ydata(new_line1y)        # set the new ydata
-            old_line1t = line1.get_xdata()  # grab current data
-            new_line1t = np.r_[old_line1t[1:], t]  # stick new data on end of old data
-            line1.set_xdata(new_line1t)        # set the new ydata
-            
-            old_line2y = line2.get_ydata()  # grab current data
-            new_line2y = np.r_[old_line2y[1:], concKid]  # stick new data on end of old data
-            line2.set_ydata(new_line2y)        # set the new ydata
-            old_line2t = line2.get_xdata()  # grab current data
-            new_line2t = np.r_[old_line1t[2:], t]  # stick new data on end of old data
-            line2.set_xdata(new_line2t)        # set the new ydata
-            
-            old_line1ery = line1er.get_ydata()  # grab current data
-            new_line1ery = np.r_[old_line1ery[1:], spher]  # stick new data on end of old data
-            line1er.set_ydata(new_line1ery)        # set the new ydata
-            old_line1ert = line1er.get_xdata()  # grab current data
-            new_line1ert = np.r_[old_line1ert[1:], t]  # stick new data on end of old data
-            line1er.set_xdata(new_line1ert)        # set the new ydata
-            
-            old_line2ery = line2er.get_ydata()  # grab current data
-            new_line2ery = np.r_[old_line2ery[1:], kider]  # stick new data on end of old data
-            line2er.set_ydata(new_line2ery)        # set the new ydata
-            old_line2ert = line2er.get_xdata()  # grab current data
-            new_line2ert = np.r_[old_line2ert[1:], t]  # stick new data on end of old data
-            line2er.set_xdata(new_line2ert)        # set the new ydata
-        
-class Sidebar(Frame):
+    def read_data_thread(self):
+        while True:
+            if self.ser.in_waiting > 0:
+                if self.app_instance.testOn:
+                    received_data = self.ser.readline().decode().strip()
+                    self.app_instance.update_serial_text(received_data)  # Update the GUI text box
+                    row="{} {} {}".format(t,rawSph,rawKid)
+                    t=float(row[0])
+                    concSph=float(row[1])*math.exp(-t/float(self.app_instance.dec.get()))
+                    concKid=float(row[2])*math.exp(-t/float(self.app_instance.dec.get()))
+                    tindsph=(np.abs(self.app_instance.timeconcspht - t)).argmin()
+                    spher=(-self.app_instance.timeconcsphy[tind]+concSph)/self.app_instance.timeconcsphy[tind]
+                    tindkid=(np.abs(self.app_instance.timeconckidt - t)).argmin()
+                    kider=(-self.app_instance.timeconckidy[tind]+concKid)/self.app_instance.timeconckidy[tind]
+                    
+                    old_line1y = self.app_instance.lineSph.get_ydata()  # grab current data
+                    new_line1y = np.r_[old_line1y[1:], concSph]  # stick new data on end of old data
+                    self.app_instance.lineSph.set_ydata(new_line1y)        # set the new ydata
+                    old_line1t = self.app_instance.lineSph.get_xdata()  # grab current data
+                    new_line1t = np.r_[old_line1t[1:], t]  # stick new data on end of old data
+                    self.app_instance.lineSph.set_xdata(new_line1t)        # set the new ydata
+                    
+                    old_line2y = self.app_instance.lineKid.get_ydata()  # grab current data
+                    new_line2y = np.r_[old_line2y[1:], concKid]  # stick new data on end of old data
+                    self.app_instance.lineKid.set_ydata(new_line2y)        # set the new ydata
+                    old_line2t = self.app_instance.lineKid.get_xdata()  # grab current data
+                    new_line2t = np.r_[old_line1t[2:], t]  # stick new data on end of old data
+                    self.app_instance.lineKid.set_xdata(new_line2t)        # set the new ydata
+                    
+                    old_line1ery = self.app_instance.lineSpher.get_ydata()  # grab current data
+                    new_line1ery = np.r_[old_line1ery[1:], spher]  # stick new data on end of old data
+                    self.app_instance.lineSpher.set_ydata(new_line1ery)        # set the new ydata
+                    old_line1ert = self.app_instance.lineSpher.get_xdata()  # grab current data
+                    new_line1ert = np.r_[old_line1ert[1:], t]  # stick new data on end of old data
+                    self.app_instance.lineSpher.set_xdata(new_line1ert)        # set the new ydata
+                    
+                    old_line2ery = self.app_instance.lineKider.get_ydata()  # grab current data
+                    new_line2ery = np.r_[old_line2ery[1:], kider]  # stick new data on end of old data
+                    self.app_instance.lineKider.set_ydata(new_line2ery)        # set the new ydata
+                    old_line2ert = self.app_instance.lineKider.get_xdata()  # grab current data
+                    new_line2ert = np.r_[old_line2ert[1:], t]  # stick new data on end of old data
+                    self.app_instance.lineKider.set_xdata(new_line2ert)        # set the new ydata
+
+                    self.app_instance.canvas.draw()
+                    self.app_instance.filewrite.writeline(str(t)+","+str(rawSph)+str(concSph)+","+str(rawKid)+","+str(concKid))
+    def close(self):
+        self.ser.close()
+        self.app_instance.buttonCOM.config(text="Connect",command=self.app_instance.connectCOM)
+       
+class MainPage(Frame):
     def __init__(self,master):
         Frame.__init__(self,master)
-        
-        clicked = StringVar()
-        clicked.set("")
-        
+        self.COMconnected=False
+        self.kidfileOpened=False
+        self.sphfileOpened=False
+        self.testOn=False
+        self.clicked = StringVar()
+        self.clicked.set("")
+        self.ports=self.listPorts()
         self.COM=Label(self,text="COM Port")
-        self.COMlist=OptionMenu(self,clicked,*ports)
-        self.buttonCOM=Button(self,text="Connect",command=lambda:connectCOM(clicked,self.buttonCali,self.buttonRun,self.buttonFlush,self.buttonLoadCurveSphere,self.buttonLoadCurveKidney))
+        self.COMlist=OptionMenu(self,self.clicked,*self.ports)
+        self.buttonCOM=Button(self,text="Connect",command=self.connectCOM)
 
-        dec=StringVar()
-        dec.set("6588")
-        self.entLab=Label(self,text="Decay Half-life (s)")
-        self.ent=Entry(self,textvariable=dec)
-
-        self.buttonOpenSphere=Button(self,text="Open Sphere File",command=lambda:openFile(self.selFileSphere,self.buttonLoadCurveSphere,dec,"sph"))
+        self.dec=StringVar()
+        self.dec.set("0.0001518")
+        self.filewritename=StringVar()
+        self.activity=StringVar()
+        self.activityTime=StringVar()
+        self.entLab=Label(self,text="Decay Constant(Hz)")
+        self.ent=Entry(self,textvariable=self.dec)
+        self.entLabfile=Label(self,text="Created File Name")
+        self.entfile=Entry(self,textvariable=self.filewritename)
+        self.entLabActivity=Label(self,text="Activity Measurement (MBq/mL)")
+        self.entActivity=Entry(self,textvariable=self.activity)
+        self.entLabActivityTime=Label(self,text="Measurement Time (HH:MM:SS)")
+        self.entActivityTime=Entry(self,textvariable=self.activityTime)
+        
+        self.buttonOpenSphere=Button(self,text="Open Sphere File",command=lambda:self.openFile(self.selFileSphere,"sph"))
         self.selFileSphere=Label(self,text="No File Selected")
-        self.buttonLoadCurveSphere=Button(self,text="Load Sphere Curve",state="disabled",command=lambda:loadCurve(arduino,filesizesph,timeconcsph,self.buttonRun,"sph"))
+        self.buttonLoadCurveSphere=Button(self,text="Load Sphere Curve",state="disabled",command=lambda:self.loadCurve("sph"))
         
-        self.buttonOpenKidney=Button(self,text="Open Kidney File",command=lambda:openFile(self.selFileKidney,self.buttonLoadCurveKidney,dec,"kid"))
+        self.buttonOpenKidney=Button(self,text="Open Kidney File",command=lambda:self.openFile(self.selFileKidney,"kid"))
         self.selFileKidney=Label(self,text="No File Selected")
-        self.buttonLoadCurveKidney=Button(self,text="Load Kidney Curve",state="disabled",command=lambda:loadCurve(arduino,filesizekid,timeconckid,self.buttonRun,"kid"))
+        self.buttonLoadCurveKidney=Button(self,text="Load Kidney Curve",state="disabled",command=lambda:self.loadCurve("kid"))
 
-        self.buttonCali=Button(self,text="Calibrate",state="disabled",command=lambda:calibrate(arduino))
-        self.buttonRun=Button(self,text="Run Test",state="disabled",command=lambda:startTest(self.buttonStop,arduino))
-        self.buttonStop=Button(self,text="Stop Test",state="disabled",command=lambda:stopTest(arduino))
-        self.buttonFlush=Button(self,text="Flush System",state="disabled",command=lambda:flush(arduino))
+        self.buttonCali=Button(self,text="Calibrate",state="disabled",command=self.calibrate)
+        self.buttonRun=Button(self,text="Run Test",state="disabled",command=self.startTest)
+        self.buttonStop=Button(self,text="Stop Test",state="disabled",command=self.stopTest)
+        self.buttonFlush=Button(self,text="Flush System",state="disabled",command=self.flush)
         
+        self.serialMonitor=Text(self,height=9,width=50)
 
+        #self.activitycheck=dialog.simpledialog.askstring("Activity", "Activity Measurement (MBq/mL):")
+        self.fig=Figure(figsize=(5,5),dpi=100)
+        self.axSph=self.fig.add_subplot(221)
+        self.axSpher=self.fig.add_subplot(222)
+        self.axKid=self.fig.add_subplot(223)
+        self.axKider=self.fig.add_subplot(224)
+        self.lineSph,=self.axSph.plot([],[],lw=2)
+        self.lineSpher,=self.axSpher.plot([],[],lw=2)
+        self.lineKid,=self.axKid.plot([],[],lw=2)
+        self.lineKider,=self.axKider.plot([],[],lw=2)
+        self.canvas=FigureCanvasTkAgg(self.fig,master=self)
+        self.toolbarFrame=Frame(self)
+        self.toolbarFrame.grid(row=12,column=4,columnspan=2,padx=5,pady=5)
+        self.toolbar = NavigationToolbar2Tk(self.canvas,self.toolbarFrame)
+       
+        plt.show()
+        
+        self.canvas.get_tk_widget().grid(row=0, rowspan=11,column=4,columnspan=2,padx=5,pady=5)
         self.COM.grid(row=0,column=0,padx=5,pady=5)
         self.COMlist.grid(row=0,column=1,padx=5,pady=5)
         self.buttonCOM.grid(row=0,column=2,padx=5,pady=5)
         self.entLab.grid(row=1,column=0,padx=5,pady=5)
         self.ent.grid(row=1,column=1,padx=5,pady=5)
-        self.selFileSphere.grid(row=2,column=0,padx=5,pady=5)
-        self.buttonOpenSphere.grid(row=2,column=1,padx=5,pady=5)
-        self.buttonLoadCurveSphere.grid(row=2,column=2,padx=5,pady=5)
-        self.selFileKidney.grid(row=3,column=0,padx=5,pady=5)
-        self.buttonOpenKidney.grid(row=3,column=1,padx=5,pady=5)
-        self.buttonLoadCurveKidney.grid(row=3,column=2,padx=5,pady=5)
-        self.buttonCali.grid(row=4,column=1,padx=5,pady=5)
-        self.buttonRun.grid(row=5,column=0,padx=5,pady=5)
-        self.buttonStop.grid(row=5,column=1,padx=5,pady=5)
-        self.buttonFlush.grid(row=6,column=1,padx=5,pady=5)
+        self.entLabfile.grid(row=2,column=0,padx=5,pady=5)
+        self.entfile.grid(row=2,column=1,padx=5,pady=5)
+        self.entLabActivity.grid(row=3,column=0,padx=5,pady=5)
+        self.entActivity.grid(row=3,column=1,padx=5,pady=5)
+        self.entLabActivityTime.grid(row=4,column=0,padx=5,pady=5)
+        self.entActivityTime.grid(row=4,column=1,padx=5,pady=5)
+        self.selFileSphere.grid(row=5,column=0,padx=5,pady=5)
+        self.buttonOpenSphere.grid(row=5,column=1,padx=5,pady=5)
+        self.buttonLoadCurveSphere.grid(row=5,column=2,padx=5,pady=5)
+        self.selFileKidney.grid(row=6,column=0,padx=5,pady=5)
+        self.buttonOpenKidney.grid(row=6,column=1,padx=5,pady=5)
+        self.buttonLoadCurveKidney.grid(row=6,column=2,padx=5,pady=5)
+        self.buttonCali.grid(row=7,column=1,padx=5,pady=5)
+        self.buttonRun.grid(row=8,column=0,padx=5,pady=5)
+        self.buttonStop.grid(row=8,column=1,padx=5,pady=5)
+        self.buttonFlush.grid(row=9,column=1,padx=5,pady=5)
+        self.serialMonitor.grid(row=10,column=0,columnspan=3,padx=5,pady=5)
         self.grid(padx=25,pady=25)
-        
-def startTest(stopBut,port):
-    global testOn
-    port.write((1).to_bytes(1,"big"))
-    stopBut["state"]="normal"
-    testOn=True
-def calibrate(port):
-    port.write((2).to_bytes(1,"big"))
-def flush(port):
-    port.write((3).to_bytes(1,"big"))
-def loadCurve(port,filesize,curve,runBut,cham):
-    if cham=="sph":
-        port.write((4).to_bytes(1,"big"))
-        
-    else:
-        port.write((4).to_bytes(1,"big"))
-    port.write(filesize.to_bytes(2,"big"))
-    for x in curve:
-        port.write(bytes(x[0], 'utf-8'))
-        port.write(bytes(x[1], 'utf-8'))
-        runBut["state"]="normal"
 
-def stopTest(port):
-    port.write((5).to_bytes(1,"big"))
-    
-def openFile(selected_file_label,loadBut,decay,cham):
-    file_path = filedialog.askopenfilename(title="Select a File", filetypes=[("CSV", "*.csv")])
-    if file_path:
-        selected_file_label.config(text=f"Selected File: {os.path.basename(file_path)}")
-        process_file(file_path,selected_file_label,loadBut,decay,cham)
-def process_file(file_path,selected_file_label,loadBut,decay,cham):
-    # Implement your file processing logic here
-    # For demonstration, let's just display the contents of the selected file
+    def send_data(self,data_to_send):
+        if not hasattr(self, 'serial_manager'):
+            print("Not connected to serial port")
+            return
+
+ #       data_to_send = self.send_text.get("1.0", "end-1c") + '\n'
+        self.serial_manager.send_data(data_to_send)
+        #print("Data sent to Arduino")
+
+    def update_serial_text(self, received_data):
+        self.serialMonitor.insert(END, received_data + "\n")
+        self.serialMonitor.see(END)  # Scroll to the bottom of the text box
+    def startTest(self):
+        self.send_data("1")
+        self.buttonStop.config(state=NORMAL)
+        self.startTime=time.time()
+        self.filewrite=open(self.filewritename.get()+".csv","x")
+        self.filewrite.writeline("Time (s),Sphere Concentration, Sphere Activity, Kidney Concentration, Kidney Activity")
+        self.testOn=True
+    def calibrate(self):
+        self.send_data("2")
+    def flush(self):
+        self.send_data("3")
+    def loadCurve(self,cham):
+        if cham=="sph":
+            self.send_data("4")
+            self.send_data(str(self.filesizesph))
+            for x in self.timeconcDecsph:
+                self.send_data(str(x[0]))
+                self.send_data(str(x[1]))
+        else:
+            self.send_data("4")
+            self.send_data(str(self.filesizekid))
+            for x in self.timeconcDeckid:
+                self.send_data(str(x[0]))
+                self.send_data(str(x[1]))
+
+        self.buttonRun.config(state=NORMAL)
+
+    def stopTest(self):
+        self.send_data("5")
+        self.filewrite.close()
+        
+    def openFile(self,selected_file_label,cham):
+        file_path = filedialog.askopenfilename(title="Select a File", filetypes=[("CSV", "*.csv")])
+        if file_path:
+            selected_file_label.config(text=f"Selected File: {os.path.basename(file_path)}")
+            self.process_file(file_path,selected_file_label,cham)
+    def process_file(self,file_path,selected_file_label,cham):
+        # Implement your file processing logic here
+        # For demonstration, let's just display the contents of the selected file
+
+
+            try:
+                with open(file_path, 'r') as file:
+                    if cham=="sph":
+                        self.timeconcDecsph=[]
+                        self.timeconcspht=[]
+                        self.timeconcsphy=[]
+                        self.filesizesph=0
+                        self.timeconcsph=[]
+                        file_contents = csv.reader(file,delimiter=',')
+                        for row in file_contents:
+                            self.timeconcsph.append(row)
+                            self.timeconcspht.append(float(row[0]))
+                            self.timeconcsphy.append(float(row[1]))
+                            self.filesizesph+=1
+                            self.timeconcDecsph.append([float(row[0]),float(row[1])*math.exp(float(row[0])/float(self.dec.get()))])
+                        self.axSph.plot(self.timeconcspht,self.timeconcsphy)    
+                        self.canvas.draw()
+                        if self.COMconnected==True:
+                            self.buttonLoadCurveSphere.config(state=NORMAL)
+                        self.sphfileOpened=True
+
+                    if cham=="kid":
+                        self.timeconcDeckid=[]
+                        self.timeconckidt=[]
+                        self.timeconckidy=[]
+                        self.filesizekid=0
+                        self.timeconckid=[]
+                        file_contents = csv.reader(file,delimiter=',')
+                        for row in file_contents:
+                            self.timeconckid.append(row)
+                            self.timeconckidt.append(float(row[0]))
+                            self.timeconckidy.append(float(row[1]))
+                            self.filesizekid+=1
+                            self.timeconcDeckid.append([float(row[0]),float(row[1])*math.exp(float(row[0])/float(self.dec.get()))])
+                        self.axKid.plot(self.timeconckidt,self.timeconckidy)
+                        self.canvas.draw()
+                        if self.COMconnected==True:
+                            self.buttonLoadCurveKidney.config(state=NORMAL)
+                        self.kidfileOpened=True
+            except Exception as e:
+                selected_file_label.config(text=f"Error: {str(e)}")
+    def listPorts(self):
+        L=[""]
+        ports = serial.tools.list_ports.comports()
+        for port, desc, hwid in sorted(ports):
+            print("{}: {} ".format(port, desc))
+            L.append("{}: {}".format(port, desc))
+        return L
+    def connectCOM(self):
+        port=self.clicked.get()
         try:
-            with open(file_path, 'r') as file:
-                global timeconckid,timeconckidt,timeconckidy,timeconcDeckid,timeconcsph,timeconcspht,timeconcsphy,timeconcDecsph, filesizekid,filesizesph, kidfileOpened, sphfileOpened
-                if cham=="sph":
-                    timeconcDecsph=[]
-                    timeconcspht=[]
-                    timeconcsphy=[]
-                    filesizesph=0
-                    file_contents = csv.reader(file,delimiter=',')
-                    timeconcsph=file_contents
-                    for row in file_contents:
-                        timeconcspht.append(float(row[0]))
-                        timeconcsphy.append(float(row[1]))
-                        filesizesph+=1
-                        timeconcDecsph.append([float(row[0]),float(row[1])*math.exp(float(row[0])/float(decay.get()))])
-                    axSph.plot(timeconcspht,timeconcsphy)    
-                    canvas.draw()
-                    if COMconnected==True:
-                        loadBut["state"]="normal"
-                    sphfileOpened=True
+            p=parse.parse("{}: {}",port)
+            self.serial_manager=SerialManager(p[0],self)
+            self.buttonCali.config(state=NORMAL)
+            self.buttonFlush.config(state=NORMAL)
+            if self.kidfileOpened==True:
+                self.buttonRun.config(state=NORMAL)
+                self.buttonLoadCurveKidney.config(state=NORMAL)
+            if self.sphfileOpened==True:
+                self.buttonRun.config(state=NORMAL)
+                self.buttonLoadCurveSphere.config(state=NORMAL)
+            self.COMconnected=True
+            self.buttonCOM.config(text="Disconnect",command=self.serial_manager.close)
+        except serial.SerialException:
+            print("Failed to connect")
+            
 
-                if cham=="kid":
-                    timeconcDeckid=[]
-                    timeconckidt=[]
-                    timeconckidy=[]
-                    filesizekid=0
-                    file_contents = csv.reader(file,delimiter=',')
-                    timeconckid=file_contents
-                    for row in file_contents:
-                        timeconckidt.append(float(row[0]))
-                        timeconckidy.append(float(row[1]))
-                        filesizekid+=1
-                        timeconcDeckid.append([float(row[0]),float(row[1])*math.exp(float(row[0])/float(decay.get()))])
-                    axKid.plot(timeconckidt,timeconckidy)
-                    canvas.draw()
-                    if COMconnected==True:
-                        loadBut["state"]="normal"
-                    kidfileOpened=True
-        except Exception as e:
-            selected_file_label.config(text=f"Error: {str(e)}")
-def listPorts():
-    L=[""]
-    ports = serial.tools.list_ports.comports()
-    for port, desc, hwid in sorted(ports):
-        print("{}: {} ".format(port, desc))
-        L.append("{}: {}".format(port, desc))
-    return L
-def connectCOM(port,calBut,runBut,flushBut,loadBut1,loadBut2):
-    global arduino, COMconnected
-    p=parse.parse("{}: {}",port.get())
-    arduino=serial.Serial(p[0],9600)
-    calBut["state"]="normal"
-    flushBut["state"]="normal"
-    if kidfileOpened==True:
-        runBut["state"]="normal"
-        loadBut2["state"]="normal"
-    if sphfileOpened==True:
-        runBut["state"]="normal"
-        loadBut1["state"]="normal"
-    COMconnected=True
-    
-global ports
-COMconnected=False
-kidfileOpened=False
-sphfileOpened=False
-testOn=False
-ports=listPorts()
 root=Tk()
 gui=GUI(root)
 root.mainloop()
