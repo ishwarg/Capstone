@@ -15,14 +15,14 @@
 #define CALIBRATION_TIME 10000
 #define FLUSH_TIME 10000
 #define MAX_ROWS 90
-#define RAMP_TIME 0
+#define RAMP_TIME 20000
 
 #define FULL_SPEED 255
 #define OFF 0
 #define WATER_SPEED 190
 #define SALT_SPEED 120
 #define WATER_MIN 50
-#define SALT_MIN 75
+#define SALT_MIN 80
 
 #define SETPOINT_THRESHOLD 40
 #define WINDOW_SIZE 100
@@ -33,11 +33,6 @@
 #define WATERKP 0.0
 #define WATERKI 0.0
 #define WATERKD 0.0
-
-
-
-
-
 
 double Setpoint, Input, Output;
 
@@ -66,20 +61,21 @@ int state = 5;
 int pidState = 0;
 bool flowState = false;
 int numRows = 0;
-double curve[MAX_ROWS][2] = { { 0.0, 100.0 }, { 60.0, 0.0 } };
+double curve[MAX_ROWS][2] = { { 0.0, 130.0 }, { 60.0, 0.0 } };
 int curveIndex = 0;
 
 const byte numRowsSize = sizeof(int);
 const byte dataPointSize = sizeof(double);
 const int BUFFER_SIZE = 5;  // 4 bytes for the string + 1 for null terminator
 char buffer[BUFFER_SIZE];   // Buffer to store the received bytes
+int currentTime = millis();
 
-double kidneyGains[2][3] = {{1.1,1.0,0.01},{0.2,0.6,0.03}};
+double kidneyGains[2][3] = { { 0.6, 0.6, 0.01 }, { 0.2, 0.15, 0.01 } };
 
 void setup() {
   pinMode(WATER, OUTPUT);
   pinMode(SALT, OUTPUT);
-  
+
   Input = analogRead(CONCENTRATION_OUTLET);
   numRows = 2;  // TEMPORARY LINE
 
@@ -100,24 +96,30 @@ void loop() {
 
   for (int i = 0; i < WINDOW_SIZE; i++) {
     conc += analogRead(CONCENTRATION_OUTLET);
-    
   }
   conc = conc / WINDOW_SIZE;
 
   if (state == RUN) {
 
-    if (millis() - runStart > (int)curve[curveIndex + 1][0] * 1000) {
-      curveIndex++;
+    
+    
+    if(currentTime-runStart<=RAMP_TIME){
+      Setpoint = curve[0][1];
+      currentTime = millis();
     }
+    // if (millis() - runStart > (int)curve[curveIndex + 1][0] * 1000) {
+    //   curveIndex++;
+    // }
+    else
+    //Setpoint = curve[curveIndex][1];
+    Setpoint = 130.0 * exp(-0.005*(double)(millis()-currentTime)/1000.0);
 
-    Setpoint = curve[curveIndex][1];
 
-
-    if (curveIndex >= numRows) {
-      state = STOP;  // MAYBE HAVE A MESSAGE THAT PRINTS OUT THE PROFILE HAS BEEN COMPLETED
-      Serial.println("Finished... Stopping...");
-      curveIndex = 0;
-    }
+    // if (curveIndex >= numRows) {
+    //   state = STOP;  // MAYBE HAVE A MESSAGE THAT PRINTS OUT THE PROFILE HAS BEEN COMPLETED
+    //   Serial.println("Finished... Stopping...");
+    //   curveIndex = 0;
+    // }
 
     Input = conc;
     //myPID.SetSampleTime(8);
@@ -164,7 +166,6 @@ void loop() {
       Serial.print(" ");
       Serial.println(analogRead(CONCENTRATION_OUTLET));
       current = millis();
-      
     }
     analogWrite(WATER, OFF);
     analogWrite(SALT, OFF);
@@ -227,9 +228,10 @@ void loop() {
       // Convert bytes back into 2D list of doubles
       for (int i = 0; i < numRows; i++) {
         for (int j = 0; j < 2; j++) {
-
+          while (!Serial.available()) {
+          }
           receivedString = Serial.readStringUntil('\0');
-          Serial.println(receivedString);
+          //Serial.println(receivedString);
           //Serial.println(receivedString);
           curve[i][j] = receivedString.toFloat();
           //Serial.println(curve[i][j]);
@@ -275,6 +277,7 @@ void loop() {
       Serial.println("About to start...");
       myPID.SetMode(AUTOMATIC);
       runStart = millis();
+      currentTime = millis();
       curveIndex = 0;
       analogWrite(WATER, WATER_SPEED);
     } else if (inChar.equals("2")) {
@@ -282,7 +285,7 @@ void loop() {
       state = CALIBRATE;
     } else if (inChar.equals("3")) {
       state = FLUSH;
-      
+
     } else if (inChar.equals("4")) {
       Serial.println(CURVELOAD);
       state = CURVELOAD;
