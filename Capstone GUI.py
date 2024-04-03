@@ -33,7 +33,7 @@ class GUI(Frame):
 class SerialManager:
     def __init__(self, port, app_instance):
         self.serial_port = port
-        self.ser = serial.Serial(port, 9600, timeout=1)
+        self.ser = serial.Serial(port,115200, timeout=1)
         self.app_instance = app_instance
         self.thread_read = threading.Thread(target=self.read_data_thread, daemon=True)
         self.thread_read.start()
@@ -44,9 +44,11 @@ class SerialManager:
     def read_data_thread(self):
         while True:
             if self.ser.in_waiting > 0:
+                received_data = self.ser.readline().decode().strip()
+                print(received_data)
+                self.app_instance.update_serial_text(received_data)# Update the GUI text box
+                
                 if self.app_instance.testOn==True:
-                    received_data = self.ser.readline().decode().strip()
-                    self.app_instance.update_serial_text(received_data)  # Update the GUI text box
                     if isinstance(received_data, type(None)):
                         row=parse.parse("{} {} {}",received_data)
                         rawSph=float(row[1])
@@ -90,7 +92,6 @@ class SerialManager:
                         self.app_instance.canvas.draw()
                         self.app_instance.filewrite.write(str(t)+","+str(rawSph)+str(concSph)+","+str(rawKid)+","+str(concKid)+"\n")
     def close(self):
-        self.ser.close()
         self.app_instance.buttonCOM.config(text="Connect",command=self.app_instance.connectCOM)
        
 class MainPage(Frame):
@@ -191,25 +192,25 @@ class MainPage(Frame):
         self.serialMonitor.insert(END, received_data + "\n")
         self.serialMonitor.see(END)  # Scroll to the bottom of the text box
     def startTest(self):
-        self.send_data("1")
+        self.send_data("1\n")
         self.buttonStop.config(state=NORMAL)
         self.startTime=time.time()
         self.filewrite=open(self.filewritename.get()+".csv","x")
         self.filewrite.write("Time (s),Sphere Concentration, Sphere Activity, Kidney Concentration, Kidney Activity\n")
         self.testOn=True
     def calibrate(self):
-        self.send_data("2")
+        self.send_data("2\n")
     def flush(self):
-        self.send_data("3")
+        self.send_data("3\n")
     def loadCurve(self,cham):
         if cham=="sph":
-            self.send_data("4")
-            self.send_data(str(self.filesizesph))
+            self.send_data("4\n")
+            self.send_data(str(self.filesizesph)+"\n")
             for x in self.timeconcDecsph:
-                self.send_data(str(x[0]))
-                self.send_data(str(x[1]))
+                self.send_data(str('{0:.3f}'.format(x[0]))+"\n")
+                self.send_data(str('{0:.3f}'.format(x[1]))+"\n")
         else:
-            self.send_data("4")
+            self.send_data("4\n")
             self.send_data(str(self.filesizekid))
             for x in self.timeconcDeckid:
                 self.send_data(str(x[0]))
@@ -218,7 +219,7 @@ class MainPage(Frame):
         self.buttonRun.config(state=NORMAL)
 
     def stopTest(self):
-        self.send_data("5")
+        self.send_data("5\n")
         self.filewrite.close()
         
     def openFile(self,selected_file_label,cham):
