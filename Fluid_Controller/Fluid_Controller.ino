@@ -1,14 +1,16 @@
 #include <PID_v1.h>
 
-#define WATER 3
-#define SALT 8
-#define CONCENTRATION 1
+#define WATER 10
+#define SALT 7
+#define CONCENTRATION_INLET 0
+#define CONCENTRATION_OUTLET 2
 
 #define RUN 1
 #define CALIBRATE 2
 #define FLUSH 3
 #define CURVELOAD 4
 #define STOP 5
+#define SALT_MEASURE 9
 
 #define CALIBRATION_TIME 10000
 #define FLUSH_TIME 10000
@@ -23,14 +25,16 @@
 #define SALT_MIN 75
 
 #define SETPOINT_THRESHOLD 40
-#define WINDOW 5
+#define WINDOW_SIZE 100
 
-#define SALTKP 0.09
-#define SALTKI 0.18
-#define SALTKD 0.04
+#define SALTKP 1.0
+#define SALTKI 0.0
+#define SALTKD 0.00
 #define WATERKP 0.0
 #define WATERKI 0.0
 #define WATERKD 0.0
+
+
 
 
 
@@ -56,25 +60,28 @@ float water_conc = 0;
 
 int runStart;
 int flushStart;
-unsigned long begin=0;
+unsigned long begin = 0;
 int elapsedTime;
 int state = 5;
 int pidState = 0;
 bool flowState = false;
 int numRows = 0;
-double curve[MAX_ROWS][2] = {{0.0, 20.0}, {60.0, 0.0}};
+double curve[MAX_ROWS][2] = { { 0.0, 100.0 }, { 60.0, 0.0 } };
 int curveIndex = 0;
 
 const byte numRowsSize = sizeof(int);
 const byte dataPointSize = sizeof(double);
-const int BUFFER_SIZE = 5; // 4 bytes for the string + 1 for null terminator
-char buffer[BUFFER_SIZE]; // Buffer to store the received bytes
+const int BUFFER_SIZE = 5;  // 4 bytes for the string + 1 for null terminator
+char buffer[BUFFER_SIZE];   // Buffer to store the received bytes
+
+double kidneyGains[2][3] = {{1.1,1.0,0.01},{0.2,0.6,0.03}};
 
 void setup() {
   pinMode(WATER, OUTPUT);
   pinMode(SALT, OUTPUT);
-  Input = analogRead(CONCENTRATION);
-  numRows = 2;    // TEMPORARY LINE
+  
+  Input = analogRead(CONCENTRATION_OUTLET);
+  numRows = 2;  // TEMPORARY LINE
 
 
   Serial.begin(115200);
@@ -84,32 +91,27 @@ void setup() {
   myPID.SetControllerDirection(DIRECT);
   myPID.SetOutputLimits(SALT_MIN, 255);
 
-  
-  state = STOP;      // change this to be in the Stopped State once GUI is fully done
-  
-  
+
+  state = STOP;  // change this to be in the Stopped State once GUI is fully done
 }
 
 void loop() {
 
 
-  for (int i = 0; i < 50; i++) {
-    conc += analogRead(CONCENTRATION);
-  }
-  conc = conc / 50;
+  for (int i = 0; i < WINDOW_SIZE; i++) {
+    conc += analogRead(CONCENTRATION_OUTLET);
     
+  }
+  conc = conc / WINDOW_SIZE;
 
   if (state == RUN) {
-    
-    
-    if (millis() - runStart > (int)curve[curveIndex + 1][0] * 1000){
-    curveIndex++;
-    
 
+    if (millis() - runStart > (int)curve[curveIndex + 1][0] * 1000) {
+      curveIndex++;
     }
-    
+
     Setpoint = curve[curveIndex][1];
-  
+
 
     if (curveIndex >= numRows) {
       state = STOP;  // MAYBE HAVE A MESSAGE THAT PRINTS OUT THE PROFILE HAS BEEN COMPLETED
@@ -118,13 +120,18 @@ void loop() {
     }
 
     Input = conc;
-    myPID.SetSampleTime(8);
-    
-    myPID.Compute();
-    //Output  = map_range(Output, 0, 255, SALT_MIN, 255);
-    int waterCommand = linearInterpolation(Setpoint,180,20,70,240);
-    
+    //myPID.SetSampleTime(8);
+    int waterCommand = (int)linearInterpolation(Setpoint, 40, 140, 250, 80);
     analogWrite(WATER, waterCommand);
+    Kp = linearInterpolation(Setpoint, 140, 40, kidneyGains[0][0], kidneyGains[1][0]);
+    Ki = linearInterpolation(Setpoint, 140, 40, kidneyGains[0][1], kidneyGains[1][1]);
+    Kd = linearInterpolation(Setpoint, 140, 40, kidneyGains[0][2], kidneyGains[1][2]);
+    // //Serial.print(0);
+    myPID.SetTunings(Kp, Ki, Kd);
+
+
+
+    myPID.Compute();
     analogWrite(SALT, (int)Output);
 
     Serial.print(0);
@@ -137,35 +144,26 @@ void loop() {
     Serial.print(" ");
     Serial.print((int)Output);
     Serial.print(" ");
-    Serial.print(Setpoint*1.1);
+    Serial.print(Ki, 3);
     Serial.print(" ");
-    Serial.println(Setpoint*0.9);
-    
- 
-    
-
-
-    // Serial.print(0);
-    // Serial.print(" ");
-    // Serial.print(25);
-    // Serial.print(" ");
-    
-    //delay(5);
-    
-    
+    Serial.print(Setpoint * 1.1);
+    Serial.print(" ");
+    Serial.println(Setpoint * 0.9);
   }
   if (state == FLUSH) {
     Serial.println("flush");
-   
+
 
     analogWrite(WATER, FULL_SPEED);
     analogWrite(SALT, FULL_SPEED);
-    
 
-    while (millis() - flushStart <= 10000) {
+    flushStart = millis();
+    int current = millis();
+    while (current - flushStart <= 10000) {
       Serial.print("flushing");
       Serial.print(" ");
-      Serial.println(analogRead(CONCENTRATION));
+      Serial.println(analogRead(CONCENTRATION_OUTLET));
+      current = millis();
       
     }
     analogWrite(WATER, OFF);
@@ -173,42 +171,42 @@ void loop() {
     Serial.println("Done Flush");
     state = STOP;
   }
-  if (state == CALIBRATE){
-      Serial.println("calibrate");
-      int calibrationStart = millis();
+  if (state == CALIBRATE) {
+    Serial.println("calibrate");
+    int calibrationStart = millis();
 
-      analogWrite(WATER, FULL_SPEED);
-      analogWrite(SALT, OFF);
+    analogWrite(WATER, FULL_SPEED);
+    analogWrite(SALT, OFF);
 
-      while (millis() - calibrationStart <= CALIBRATION_TIME) {
-      }
+    while (millis() - calibrationStart <= CALIBRATION_TIME) {
+    }
 
-      analogWrite(WATER, OFF);
-      analogWrite(SALT, OFF);
+    analogWrite(WATER, OFF);
+    analogWrite(SALT, OFF);
 
-      delay(1000);
-      for (int i = 0; i < 50; i++) {
-        water_conc += analogRead(0);
-      }
-      water_conc = water_conc / 50;
+    delay(1000);
+    for (int i = 0; i < 50; i++) {
+      water_conc += analogRead(0);
+    }
+    water_conc = water_conc / 50;
 
-      calibrationStart = millis();
-      analogWrite(WATER, OFF);
-      analogWrite(SALT, FULL_SPEED);
+    calibrationStart = millis();
+    analogWrite(WATER, OFF);
+    analogWrite(SALT, FULL_SPEED);
 
-      while (millis() - calibrationStart <= CALIBRATION_TIME) {
-      }
+    while (millis() - calibrationStart <= CALIBRATION_TIME) {
+    }
 
-      analogWrite(WATER, OFF);
-      analogWrite(SALT, OFF);
+    analogWrite(WATER, OFF);
+    analogWrite(SALT, OFF);
 
-      delay(1000);
-      for (int i = 0; i < 50; i++) {
-        salt_conc += analogRead(0);
-      }
-      salt_conc = salt_conc / 50;
+    delay(1000);
+    for (int i = 0; i < 50; i++) {
+      salt_conc += analogRead(0);
+    }
+    salt_conc = salt_conc / 50;
 
-      state = STOP;
+    state = STOP;
   }
   if (state == CURVELOAD) {
     Serial.println("curveload");
@@ -224,45 +222,50 @@ void loop() {
 
       // Define the 2D array to store received data
 
-    
+
 
       // Convert bytes back into 2D list of doubles
       for (int i = 0; i < numRows; i++) {
         for (int j = 0; j < 2; j++) {
-          
+
           receivedString = Serial.readStringUntil('\0');
           Serial.println(receivedString);
           //Serial.println(receivedString);
           curve[i][j] = receivedString.toFloat();
           //Serial.println(curve[i][j]);
         }
-    }
+      }
       Serial.println("Finished Loading Curve");
       for (int i = 0; i < numRows; i++) {
-      Serial.print("Row ");
-      Serial.print(i);
-      Serial.print(": ");
-      Serial.print(curve[i][0]);
-      Serial.print(", ");
-      Serial.println(curve[i][1]);
-    }
+        Serial.print("Row ");
+        Serial.print(i);
+        Serial.print(": ");
+        Serial.print(curve[i][0]);
+        Serial.print(", ");
+        Serial.println(curve[i][1]);
+      }
     }
 
     state = STOP;
   }
 
   if (state == STOP) {
-    
+
     myPID.SetMode(MANUAL);
     analogWrite(WATER, OFF);
     analogWrite(SALT, OFF);
+  }
+  if (state == SALT_MEASURE) {
+    // analogWrite(WATER, 120);
+    // analogWrite(SALT, 120);
+    Serial.println(conc);
   }
 
 
 
   if (Serial.available() > 0) {
-    
-    
+
+
     // read incoming serial data:
 
     String inChar = Serial.readStringUntil('\n');
@@ -279,7 +282,7 @@ void loop() {
       state = CALIBRATE;
     } else if (inChar.equals("3")) {
       state = FLUSH;
-      flushStart = millis();
+      
     } else if (inChar.equals("4")) {
       Serial.println(CURVELOAD);
       state = CURVELOAD;
@@ -287,77 +290,77 @@ void loop() {
       Serial.println("Stopping");
       state = STOP;
     }
-     
+
     else if (inChar.equals("6")) {
-      Serial.println(myPID.GetKp(),3);
-      Serial.println(myPID.GetKi(),3);
-      Serial.println(myPID.GetKd(),3);   
+      Serial.println(myPID.GetKp(), 3);
+      Serial.println(myPID.GetKi(), 3);
+      Serial.println(myPID.GetKd(), 3);
     }
 
-    else if (inChar.equals("7")){
-        Serial.println("Changing Gains");
-        String receivedString;
-        double tempKp, tempKi, tempKd;
-        while (!Serial.available()) {
+    else if (inChar.equals("7")) {
+      Serial.println("Changing Gains");
+      String receivedString;
+      double tempKp, tempKi, tempKd;
+      while (!Serial.available()) {
       }
       if (Serial.available() > 0) {
-          receivedString = Serial.readStringUntil('\n');
-          Serial.println(receivedString);
-          tempKp = receivedString.toDouble();
+        receivedString = Serial.readStringUntil('\n');
+        Serial.println(receivedString);
+        tempKp = receivedString.toDouble();
       }
       while (!Serial.available()) {
       }
       if (Serial.available() > 0) {
-          receivedString = Serial.readStringUntil('\n');
-          Serial.println(receivedString);
-          tempKi = receivedString.toDouble();
+        receivedString = Serial.readStringUntil('\n');
+        Serial.println(receivedString);
+        tempKi = receivedString.toDouble();
       }
       while (!Serial.available()) {
       }
       if (Serial.available() > 0) {
-          receivedString = Serial.readStringUntil('\n');
-          Serial.println(receivedString);
-          tempKd = receivedString.toDouble();
+        receivedString = Serial.readStringUntil('\n');
+        Serial.println(receivedString);
+        tempKd = receivedString.toDouble();
       }
       Kp = tempKp;
       Ki = tempKi;
       Kd = tempKd;
-      myPID.SetTunings(Kp,Ki,Kd);
-      
+      myPID.SetTunings(Kp, Ki, Kd);
+
       Serial.println("Done Changing Gains");
     }
 
-    else if (inChar.equals("8")){
+    else if (inChar.equals("8")) {
       Serial.println("Changing Setpoint...");
-        String receivedString;
-        double tempSet;
-        while (!Serial.available()) {
-        }
-      if (Serial.available() > 0) {
-          receivedString = Serial.readString();
-          Serial.println(receivedString);
-          tempSet = receivedString.toDouble();
+      String receivedString;
+      double tempSet;
+      while (!Serial.available()) {
       }
-      curve[0][1]= tempSet;
-      Serial.println(curve[0][1]); 
+      if (Serial.available() > 0) {
+        receivedString = Serial.readString();
+        Serial.println(receivedString);
+        tempSet = receivedString.toDouble();
+      }
+      curve[0][1] = tempSet;
+      Serial.println(curve[0][1]);
       Serial.println("Done Changing Setpoint..");
-
+    } else if (inChar.equals("9")) {
+      Serial.println("Measuring Salt...");
+      delay(10);
+      state = SALT_MEASURE;
     }
-    
   }
 }
 
 int map_range(float value, float old_min, float old_max, float new_min, float new_max) {
-    // Scale the value from the old range to a value in the range [0, 1]
-    float normalized_value = (value - old_min) / (old_max - old_min);
-    // Map this normalized value to the new range
-    int new_value = new_min + normalized_value * (new_max - new_min);
-    return new_value;
+  // Scale the value from the old range to a value in the range [0, 1]
+  float normalized_value = (value - old_min) / (old_max - old_min);
+  // Map this normalized value to the new range
+  int new_value = new_min + normalized_value * (new_max - new_min);
+  return new_value;
 }
 
-int linearInterpolation( float x, float x1, float x0, float y1, float y0){
-  float normalized_Value = (y1-y0)/(x1-x0)*(x-x0)+y0;
-  return (int)normalized_Value;
-
-
+double linearInterpolation(float x, float x1, float x0, float y1, float y0) {
+  float normalized_Value = (y1 - y0) / (x1 - x0) * (x - x0) + y0;
+  return (double)normalized_Value;
 }

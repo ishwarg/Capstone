@@ -10,7 +10,7 @@ import time
 class SerialManager:
     def __init__(self, port, app_instance):
         self.serial_port = port
-        self.ser = serial.Serial(port, 9600, timeout=1)
+        self.ser = serial.Serial(port, 115200, timeout=1)
         self.app_instance = app_instance
         self.thread_read = threading.Thread(target=self.read_data_thread, daemon=True)
         self.thread_read.start()
