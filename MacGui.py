@@ -170,8 +170,9 @@ class App:
             return
         
         print("Sending curve data:", self.data_points)  # Print data_points to verify its contents
-
-        self.serial_manager.send_data("4")
+        bin = str(4)
+        bin+='\x00'
+        self.serial_manager.send_data(bin)
         self.serial_manager.send_curve_data(self.num_rows, self.data_points)
         print("Curve data sent to Arduino")
 

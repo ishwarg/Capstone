@@ -107,19 +107,19 @@ void loop() {
       Setpoint = curve[0][1];
       currentTime = millis();
     }
-    // if (millis() - runStart > (int)curve[curveIndex + 1][0] * 1000) {
-    //   curveIndex++;
-    // }
-    else
-    //Setpoint = curve[curveIndex][1];
-    Setpoint = 130.0 * exp(-0.005*(double)(millis()-currentTime)/1000.0);
+    if (millis() - runStart > (int)curve[curveIndex + 1][0] * 1000) {
+      curveIndex++;
+    }
+    
+    Setpoint = curve[curveIndex][1];
+    //Setpoint = 130.0 * exp(-0.005*(double)(millis()-currentTime)/1000.0);
 
 
-    // if (curveIndex >= numRows) {
-    //   state = STOP;  // MAYBE HAVE A MESSAGE THAT PRINTS OUT THE PROFILE HAS BEEN COMPLETED
-    //   Serial.println("Finished... Stopping...");
-    //   curveIndex = 0;
-    // }
+    if (curveIndex >= numRows) {
+      state = STOP;  // MAYBE HAVE A MESSAGE THAT PRINTS OUT THE PROFILE HAS BEEN COMPLETED
+      Serial.println("Finished... Stopping...");
+      curveIndex = 0;
+    }
 
     Input = conc;
     //myPID.SetSampleTime(8);
@@ -213,7 +213,7 @@ void loop() {
     Serial.println("curveload");
     analogWrite(WATER, OFF);
     analogWrite(SALT, OFF);
-    while (!Serial.available()) {
+    while (Serial.available()==0) {
     }
     if (Serial.available() > 0) {
       // Serial.readBytes((char*)&numRows, numRowsSize); // Read numRows as an int
@@ -222,9 +222,6 @@ void loop() {
       numRows = receivedString.toInt();
 
       // Define the 2D array to store received data
-
-
-
       // Convert bytes back into 2D list of doubles
       for (int i = 0; i < numRows; i++) {
         for (int j = 0; j < 2; j++) {
@@ -287,7 +284,7 @@ void loop() {
       state = FLUSH;
 
     } else if (inChar.equals("4")) {
-      Serial.println(CURVELOAD);
+      // Serial.println(CURVELOAD);
       state = CURVELOAD;
     } else if (inChar.equals("5")) {
       Serial.println("Stopping");
