@@ -16,6 +16,8 @@ import math
 import threading
 import time
 import queue
+from datetime import datetime   
+import pytz
 
 class GUI(Frame):
     def __init__(self, master):
@@ -48,32 +50,63 @@ class SerialManager:
                 if self.app_instance.testOn==False:
                     received_data = self.ser.readline().decode().strip()
                     self.app_instance.update_serial_text(received_data)# Update the GUI text box
-                
                 if self.app_instance.testOn==True:
                     received_data = self.ser.readline().decode().strip()
                     self.app_instance.update_serial_text(received_data)
-                    row=parse.parse("{} {} {}",received_data)
+                    if received_data=="Finished... Stopping...":
+                        self.app_instance.testEnd()
+                    if self.app_instance.sphfileLoaded==True and self.app_instance.kidfileLoaded==True:
+                        row=parse.parse("{} {} {}",received_data)
+                    else:
+                        row=parse.parse("{} {} {}",received_data)
                     if not isinstance(row, type(None)):
                         try:
-                            self.app_instance.rawSph.append(float(row[1]))
-                            self.app_instance.rawKid.append(float(row[2]))
-                            self.app_instance.t.append(float(row[0]))
-                            self.app_instance.concSph.append(float(row[1])*math.exp(-float(row[0])*float(self.app_instance.dec.get())))
-                            self.app_instance.concKid.append(float(row[2])*math.exp(-float(row[0])*float(self.app_instance.dec.get())))
+                            if self.app_instance.sphfileLoaded==True and self.app_instance.kidfileLoaded==True:
+                                self.app_instance.t.append(float(row[0]))
+                                self.app_instance.rawSph.append(float(row[1]))
+                                self.app_instance.rawKid.append(float(row[2]))
+                                self.app_instance.concSph.append(float(row[1])*math.exp(-float(row[0])*float(self.app_instance.dec.get())))
+                                self.app_instance.concKid.append(float(row[2])*math.exp(-float(row[0])*float(self.app_instance.dec.get())))
+                                if not self.app_instance.timeconcsphy[(np.abs(np.array(self.app_instance.timeconcspht) - float(row[0]))).argmin()]==0:
+                                    self.app_instance.erSph.append((float(row[1])*math.exp(-float(row[0])*float(self.app_instance.dec.get()))-self.app_instance.timeconcsphy[(np.abs(np.array(self.app_instance.timeconcspht) - float(row[0]))).argmin()])/self.app_instance.timeconcsphy[(np.abs(np.array(self.app_instance.timeconcspht) - float(row[0]))).argmin()])
+                                else:
+                                    self.app_instance.erSph.append(0)
+                                if not self.app_instance.timeconckidy[(np.abs(np.array(self.app_instance.timeconckidt) - float(row[0]))).argmin()]==0:
+                                    self.app_instance.erKid.append((float(row[2])*math.exp(-float(row[0])*float(self.app_instance.dec.get()))-self.app_instance.timeconckidy[(np.abs(np.array(self.app_instance.timeconckidt) - float(row[0]))).argmin()])/self.app_instance.timeconckidy[(np.abs(np.array(self.app_instance.timeconckidt) - float(row[0]))).argmin()])
+                                else:
+                                    self.app_instance.erKid.append(0)
+                                self.app_instance.i+=1
+                            if self.app_instance.sphfileLoaded==True and self.app_instance.kidfileLoaded==False:
+                                self.app_instance.t.append(float(row[0]))
+                                self.app_instance.rawSph.append(float(row[1]))
+                                self.app_instance.concSph.append(float(row[1])*math.exp(-float(row[0])*float(self.app_instance.dec.get())))
+                                
+                                if not self.app_instance.timeconcsphy[(np.abs(np.array(self.app_instance.timeconcspht) - float(row[0]))).argmin()]==0:
+                                    self.app_instance.erSph.append((float(row[1])*math.exp(-float(row[0])*float(self.app_instance.dec.get()))-self.app_instance.timeconcsphy[(np.abs(np.array(self.app_instance.timeconcspht) - float(row[0]))).argmin()])/self.app_instance.timeconcsphy[(np.abs(np.array(self.app_instance.timeconcspht) - float(row[0]))).argmin()])
+                                else:
+                                    self.app_instance.erSph.append(0)
+
+                                self.app_instance.i+=1
+                            if self.app_instance.sphfileLoaded==False and self.app_instance.kidfileLoaded==True:
+                                self.app_instance.t.append(float(row[0]))
+                                self.app_instance.rawKid.append(float(row[1]))
+                                self.app_instance.concKid.append(float(row[1])*math.exp(-float(row[0])*float(self.app_instance.dec.get())))
+                                if not self.app_instance.timeconckidy[(np.abs(np.array(self.app_instance.timeconckidt) - float(row[0]))).argmin()]==0:
+                                    self.app_instance.erKid.append((float(row[1])*math.exp(-float(row[0])*float(self.app_instance.dec.get()))-self.app_instance.timeconckidy[(np.abs(np.array(self.app_instance.timeconckidt) - float(row[0]))).argmin()])/self.app_instance.timeconckidy[(np.abs(np.array(self.app_instance.timeconckidt) - float(row[0]))).argmin()])
+                                else:
+                                    self.app_instance.erKid.append(0)
+                                self.app_instance.i+=1
+                                
                         except:
+                            print("Read Error")
                             continue
-                if len(self.app_instance.rawSph)<len(self.app_instance.t) and len(self.app_instance.rawKid)<len(self.app_instance.t):
-                    self.app_instance.t.pop(-1)
-                elif len(self.app_instance.rawSph)<len(self.app_instance.t) and len(self.app_instance.rawKid)==len(self.app_instance.t):
-                    self.app_instance.t.pop(-1)
-                    self.app_instance.rawKid.pop(-1)
-                    self.app_instance.concKid.pop(-1)
-                elif len(self.app_instance.rawSph)==len(self.app_instance.t) and len(self.app_instance.rawKid)<len(self.app_instance.t):
-                    self.app_instance.t.pop(-1)
-                    self.app_instance.rawSph.pop(-1)
-                    self.app_instance.concSph.pop(-1)
+                
+
     def close(self):
         self.app_instance.buttonCOM.config(text="Connect",command=self.app_instance.connectCOM)
+        self.COMconnected=False
+        self.thread_read.join()
+        self.ser.close()
        
 class MainPage(Frame):
     def __init__(self,master):
@@ -82,6 +115,8 @@ class MainPage(Frame):
         self.kidfileOpened=False
         self.sphfileOpened=False
         self.testOn=False
+        self.sphfileLoaded=False
+        self.kidfileLoaded=False
         self.clicked = StringVar()
         self.clicked.set("")
         self.ports=self.listPorts()
@@ -93,14 +128,16 @@ class MainPage(Frame):
         self.dec.set("0.0001518")
         self.filewritename=StringVar()
         self.activity=StringVar()
+        self.activity.set("50")
         self.activityTime=StringVar()
+        self.activityTime.set("1970-01-01 00:00:00")
         self.entLab=Label(self,text="Decay Constant(Hz)")
         self.ent=Entry(self,textvariable=self.dec)
         self.entLabfile=Label(self,text="Created File Name")
         self.entfile=Entry(self,textvariable=self.filewritename)
         self.entLabActivity=Label(self,text="Activity Measurement (MBq/mL)")
         self.entActivity=Entry(self,textvariable=self.activity)
-        self.entLabActivityTime=Label(self,text="Measurement Time (HH:MM:SS)")
+        self.entLabActivityTime=Label(self,text="Measurement Time (YY-MM-DD HH:MM:SS)")
         self.entActivityTime=Entry(self,textvariable=self.activityTime)
         
         self.buttonOpenSphere=Button(self,text="Open Sphere File",command=lambda:self.openFile(self.selFileSphere,"sph"))
@@ -123,6 +160,9 @@ class MainPage(Frame):
         self.rawKid=[0]
         self.concSph=[0]
         self.concKid=[0]
+        self.erSph=[0]
+        self.erKid=[0]
+        self.i=0
         
         self.fig=Figure(figsize=(5,5),dpi=100)
         self.axSph=self.fig.add_subplot(221)
@@ -173,34 +213,50 @@ class MainPage(Frame):
         self.serialMonitor.see(END)  # Scroll to the bottom of the text box
         
     def startTest(self):
+        try:
+            self.actTime = datetime.strptime(self.activityTime.get(), "%Y-%m-%d %H:%M:%S").timestamp()
+        except:
+            self.update_serial_text("Activity Time has incorrect format")
+            return
+        self.startTime=time.time()
+        if int(self.startTime)-int(self.actTime)>60*60*48:
+            self.update_serial_text("Tracer too old")
+            return
+        if int(self.startTime)-int(self.actTime)<0:
+            self.update_serial_text("Measurement time is in future")
+            return
+            
+        try:
+            self.trueActivity=float(self.activity.get())*math.exp(-float(self.dec.get())*(int(self.startTime)-int(self.actTime)))
+        except:
+            self.update_serial_text("Activity has incorrect format")
+            return
+        
         self.send_data("1\n")
         self.buttonStop.config(state=NORMAL)
-        self.startTime=time.time()
-        self.filewrite=open(self.filewritename.get()+".csv","x")
-        self.filewrite.write("Time (s),Sphere Concentration, Sphere Activity, Kidney Concentration, Kidney Activity\n")
-        self.filewrite.close()
-        
+        self.send_data(str(self.trueActivity)+"\n")
         self.testOn=True
+        self.buttonRun.config(state=DISABLED)
+        self.buttonCali.config(state=DISABLED)
+        self.buttonFlush.config(state=DISABLED)
+        
     def animate(self):
         if self.testOn==True:
-            self.filewrite=open(self.filewritename.get()+".csv","a")
-            self.filewrite.write(str(self.t[-1])+" "+str(self.rawSph[-1])+" "+str(self.rawKid[-1])+" "+str(self.concSph[-1])+" "+str(self.concKid[-1])+"\n")
-            self.filewrite.close()
+            if self.sphfileLoaded==True:
+                self.axSph.clear()
+                self.axSpher.clear()
+                self.axSph.plot(self.timeconcspht,self.timeconcsphy)
+                self.axSph.plot(self.t[0:self.i-1],self.concSph[0:self.i-1])
+                self.axSpher.plot(self.t[0:self.i-1],self.erSph[0:self.i-1])
+            if self.kidfileLoaded==True:
+                self.axKid.clear()
+                self.axKider.clear()
+                self.axKid.plot(self.timeconckidt,self.timeconckidy)
+                self.axKid.plot(self.t[0:self.i-1],self.concKid[0:self.i-1])
+                self.axKider.plot(self.t[0:self.i-1],self.erKid[0:self.i-1])
             
-            self.axSph.clear()
-            self.axSpher.clear()
-            self.axKid.clear()
-            self.axKider.clear()
-            self.axSph.plot(self.timeconcspht,self.timeconcsphy)
-            self.axSph.plot(self.t[0:len(self.concSph)],self.concSph)
-            self.axKid.plot(self.timeconckidt,self.timeconckidy)
-            self.axKid.plot(self.t[0:len(self.concKid)],self.concKid)
-
-            self.spher=np.divide(np.subtract(np.array(self.concSph),np.array(self.timeconcsphy[0:np.array(self.concSph).size])),np.array(self.timeconcsphy[0:np.array(self.concSph).size]),out=np.zeros_like(np.subtract(np.array(self.concSph),np.array(self.timeconcsphy[0:np.array(self.concSph).size]))), where=np.array(self.timeconcsphy[0:np.array(self.concSph).size])!=0)
-            self.kider=np.divide(np.subtract(np.array(self.concKid),np.array(self.timeconckidy[0:np.array(self.concKid).size])),np.array(self.timeconckidy[0:np.array(self.concKid).size]),out=np.zeros_like(np.subtract(np.array(self.concKid),np.array(self.timeconckidy[0:np.array(self.concKid).size]))), where=np.array(self.timeconckidy[0:np.array(self.concKid).size])!=0)
-            self.axSpher.plot(self.t[0:len(self.spher)],list(self.spher))
-            self.axKider.plot(self.t[0:len(self.kider)],list(self.kider))
             self.fig.canvas.draw()
+
 
         self.after(10, self.animate)
         
@@ -215,24 +271,124 @@ class MainPage(Frame):
             for x in self.timeconcDecsph:
                 self.send_data(str('{0:.3f}'.format(x[0]))+"\n")
                 self.send_data(str('{0:.3f}'.format(x[1]))+"\n")
+            self.sphfileLoaded=True
         else:
             self.send_data("4\n")
             self.send_data(str(self.filesizekid)+"\n")
             for x in self.timeconcDeckid:
                 self.send_data(str('{0:.3f}'.format(x[0]))+"\n")
                 self.send_data(str('{0:.3f}'.format(x[1]))+"\n")
-
+            self.kidfileLoaded=True
         self.buttonRun.config(state=NORMAL)
 
+        
+    def testEnd(self):
+        if not self.filewritename.get()=="":
+            try:
+                self.filewrite=open(self.filewritename.get()+".csv","x")
+                if self.sphfileLoaded==True and self.kidfileLoaded==True:
+                    self.filewrite.write("Time (s),Sphere Concentration,Sphere Activity,Kidney Concentration,Kidney Activity\n")
+                elif self.sphfileLoaded==False and self.kidfileLoaded==True:
+                    self.filewrite.write("Time (s),Kidney Concentration,Kidney Activity\n")
+                elif self.sphfileLoaded==True and self.kidfileLoaded==False:
+                    self.filewrite.write("Time (s),Sphere Concentration,Sphere Activity\n")
+                        
+                self.filewrite.close()
+                self.filewrite=open(self.filewritename.get()+".csv","a")
+                for i in range(0,len(self.t)-1):
+                    if self.sphfileLoaded==True and self.kidfileLoaded==True:
+                        self.filewrite.write(str(self.t[i])+","+str(self.rawSph[i])+","+str(self.rawKid[i])+","+str(self.concSph[i])+","+str(self.concKid[i])+"\n")
+                    elif self.sphfileLoaded==False and self.kidfileLoaded==True:
+                        self.filewrite.write(str(self.t[i])+","+str(self.rawKid[i])+","+str(self.concKid[i])+"\n")
+                    elif self.sphfileLoaded==True and self.kidfileLoaded==False:
+                        self.filewrite.write(str(self.t[i])+","+str(self.rawSph[i])+","+str(self.concSph[i])+"\n")
+                        
+                self.filewrite.close()
+            except Exception as e:
+                self.update_serial_text(f"Specified write file already exists, file saved as {self.filewritename.get()}(1).csv")
+                self.filewrite=open(self.filewritename.get()+"(1)"+".csv","x")
+                if self.sphfileLoaded==True and self.kidfileLoaded==True:
+                    self.filewrite.write("Time (s),Sphere Concentration,Sphere Activity,Kidney Concentration,Kidney Activity\n")
+                elif self.sphfileLoaded==False and self.kidfileLoaded==True:
+                    self.filewrite.write("Time (s),Kidney Concentration,Kidney Activity\n")
+                elif self.sphfileLoaded==True and self.kidfileLoaded==False:
+                    self.filewrite.write("Time (s),Sphere Concentration,Sphere Activity\n")
+                        
+                self.filewrite.close()
+                self.filewrite=open(self.filewritename.get()+".csv","a")
+                for i in range(0,len(self.t)-1):
+                    if self.sphfileLoaded==True and self.kidfileLoaded==True:
+                        self.filewrite.write(str(self.t[i])+","+str(self.rawSph[i])+","+str(self.rawKid[i])+","+str(self.concSph[i])+","+str(self.concKid[i])+"\n")
+                    elif self.sphfileLoaded==False and self.kidfileLoaded==True:
+                        self.filewrite.write(str(self.t[i])+","+str(self.rawKid[i])+","+str(self.concKid[i])+"\n")
+                    elif self.sphfileLoaded==True and self.kidfileLoaded==False:
+                        self.filewrite.write(str(self.t[i])+","+str(self.rawSph[i])+","+str(self.concSph[i])+"\n")
+                        
+                self.filewrite.close()
+        
+        self.buttonStop.config(state=DISABLED)
+        self.buttonRun.config(state=NORMAL)
+        self.buttonCali.config(state=NORMAL)
+        self.buttonFlush.config(state=NORMAL)
+        self.testOn=False
+        
     def stopTest(self):
         self.send_data("5\n")
-        self.filewrite.close()
+        if not self.filewritename.get()=="":
+            try:
+                self.filewrite=open(self.filewritename.get()+".csv","x")
+                if self.sphfileLoaded==True and self.kidfileLoaded==True:
+                    self.filewrite.write("Time (s),Sphere Concentration,Sphere Activity,Kidney Concentration,Kidney Activity\n")
+                elif self.sphfileLoaded==False and self.kidfileLoaded==True:
+                    self.filewrite.write("Time (s),Kidney Concentration,Kidney Activity\n")
+                elif self.sphfileLoaded==True and self.kidfileLoaded==False:
+                    self.filewrite.write("Time (s),Sphere Concentration,Sphere Activity\n")
+                        
+                self.filewrite.close()
+                self.filewrite=open(self.filewritename.get()+".csv","a")
+                for i in range(0,len(self.t)-1):
+                    if self.sphfileLoaded==True and self.kidfileLoaded==True:
+                        self.filewrite.write(str(self.t[i])+","+str(self.rawSph[i])+","+str(self.rawKid[i])+","+str(self.concSph[i])+","+str(self.concKid[i])+"\n")
+                    elif self.sphfileLoaded==False and self.kidfileLoaded==True:
+                        self.filewrite.write(str(self.t[i])+","+str(self.rawKid[i])+","+str(self.concKid[i])+"\n")
+                    elif self.sphfileLoaded==True and self.kidfileLoaded==False:
+                        self.filewrite.write(str(self.t[i])+","+str(self.rawSph[i])+","+str(self.concSph[i])+"\n")
+                        
+                self.filewrite.close()
+            except Exception as e:
+                self.update_serial_text(f"Specified write file already exists, file saved as {self.filewritename.get()}(1).csv")
+                self.filewrite=open(self.filewritename.get()+"(1)"+".csv","x")
+                if self.sphfileLoaded==True and self.kidfileLoaded==True:
+                    self.filewrite.write("Time (s),Sphere Concentration,Sphere Activity,Kidney Concentration,Kidney Activity\n")
+                elif self.sphfileLoaded==False and self.kidfileLoaded==True:
+                    self.filewrite.write("Time (s),Kidney Concentration,Kidney Activity\n")
+                elif self.sphfileLoaded==True and self.kidfileLoaded==False:
+                    self.filewrite.write("Time (s),Sphere Concentration,Sphere Activity\n")
+                        
+                self.filewrite.close()
+                self.filewrite=open(self.filewritename.get()+".csv","a")
+                for i in range(0,len(self.t)-1):
+                    if self.sphfileLoaded==True and self.kidfileLoaded==True:
+                        self.filewrite.write(str(self.t[i])+","+str(self.rawSph[i])+","+str(self.rawKid[i])+","+str(self.concSph[i])+","+str(self.concKid[i])+"\n")
+                    elif self.sphfileLoaded==False and self.kidfileLoaded==True:
+                        self.filewrite.write(str(self.t[i])+","+str(self.rawKid[i])+","+str(self.concKid[i])+"\n")
+                    elif self.sphfileLoaded==True and self.kidfileLoaded==False:
+                        self.filewrite.write(str(self.t[i])+","+str(self.rawSph[i])+","+str(self.concSph[i])+"\n")
+                        
+                self.filewrite.close()
+                
+        self.buttonStop.config(state=DISABLED)
+        self.buttonRun.config(state=NORMAL)
+        self.buttonCali.config(state=NORMAL)
+        self.buttonFlush.config(state=NORMAL)
+        self.testOn=False
         
     def openFile(self,selected_file_label,cham):
         file_path = filedialog.askopenfilename(title="Select a File", filetypes=[("CSV", "*.csv")])
         if file_path:
             selected_file_label.config(text=f"Selected File: {os.path.basename(file_path)}")
             self.process_file(file_path,selected_file_label,cham)
+            
     def process_file(self,file_path,selected_file_label,cham):
         # Implement your file processing logic here
         # For demonstration, let's just display the contents of the selected file
@@ -278,7 +434,9 @@ class MainPage(Frame):
                             self.buttonLoadCurveKidney.config(state=NORMAL)
                         self.kidfileOpened=True
             except Exception as e:
-                selected_file_label.config(text=f"Error: {str(e)}")
+                selected_file_label.config(text="File Format Error")
+                self.update_serial_text(f"Error: {str(e)}")
+    
     def listPorts(self):
         L=[""]
         ports = serial.tools.list_ports.comports()
@@ -290,6 +448,8 @@ class MainPage(Frame):
         try:
             p=parse.parse("{}: {}",port)
             self.serial_manager=SerialManager(p[0],self)
+            self.serial_manager.ser.flushInput()
+            self.serial_manager.ser.flushOutput()
             self.buttonCali.config(state=NORMAL)
             self.buttonFlush.config(state=NORMAL)
             if self.kidfileOpened==True:
@@ -301,7 +461,7 @@ class MainPage(Frame):
             self.COMconnected=True
             self.buttonCOM.config(text="Disconnect",command=self.serial_manager.close)
         except serial.SerialException:
-            print("Failed to connect")
+            self.update_serial_text("Failed to Connect")
             
 
 root=Tk()
