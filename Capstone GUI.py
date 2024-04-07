@@ -59,7 +59,8 @@ class SerialManager:
                     self.app_instance.update_serial_text(received_data)
                     
                     if received_data=="Finished... Stopping...":
-                        self.app_instance.testEnd()
+                        self.app_instance.testEnd=True
+                        self.app_instance.stopTest()
                     
                     if self.app_instance.sphfileLoaded==True and self.app_instance.kidfileLoaded==True:
                         row=parse.parse("{} {} {}",received_data)
@@ -121,8 +122,6 @@ class SerialManager:
                 
 
     def close(self):
-        self.app_instance.buttonCOM.config(text="Connect",command=self.app_instance.connectCOM)
-        self.COMconnected=False
         self.ser.close()
        
 class MainPage(Frame):
@@ -133,6 +132,7 @@ class MainPage(Frame):
         self.kidfileOpened=False
         self.sphfileOpened=False
         self.testOn=False
+        self.testEnd=False
         self.sphfileLoaded=False
         self.kidfileLoaded=False
         
@@ -179,8 +179,12 @@ class MainPage(Frame):
         self.buttonRun=Button(self,text="Run Test",state="disabled",command=self.startTest)
         self.buttonStop=Button(self,text="Stop Test",state="disabled",command=self.stopTest)
         self.buttonFlush=Button(self,text="Flush System",state="disabled",command=self.flush)
-        
+
+        self.text_to_send=StringVar()
+        self.textSend=Entry(self,textvariable=self.text_to_send)
+        self.buttonSend=Button(self,text="Send Text",command=self.send_text)
         self.serialMonitor=Text(self,height=9,width=50)
+        self.bind("<Return>", lambda x: self.send_text())
 
         self.t=[0]
         self.rawSph=[0]
@@ -227,6 +231,8 @@ class MainPage(Frame):
         self.buttonStop.grid(row=8,column=1,padx=5,pady=5)
         self.buttonFlush.grid(row=9,column=1,padx=5,pady=5)
         self.serialMonitor.grid(row=10,column=0,columnspan=3,padx=5,pady=5)
+        self.textSend.grid(row=11,column=0,padx=5,pady=5)
+        self.buttonSend.grid(row=11,column=1,padx=5,pady=5)
         self.grid(padx=25,pady=25)
 
     def send_data(self,data_to_send):
@@ -235,6 +241,13 @@ class MainPage(Frame):
             return
         self.serial_manager.send_data(data_to_send)
 
+    def send_text(self):
+        if not hasattr(self, 'serial_manager'):
+            print("Not connected to serial port")
+            return
+        self.send_data(self.text_to_send.get()+"\n")
+        self.text_to_send.set("")
+        
     def update_serial_text(self, received_data):
         self.serialMonitor.insert(END, received_data + "\n")
         self.serialMonitor.see(END)  # Scroll to the bottom of the text box
@@ -271,6 +284,9 @@ class MainPage(Frame):
         self.buttonRun.config(state=DISABLED)
         self.buttonCali.config(state=DISABLED)
         self.buttonFlush.config(state=DISABLED)
+        self.buttonLoadCurveSphere.config(state=DISABLED)
+        self.buttonLoadCurveKidney.config(state=DISABLED)
+
         
     def animate(self):
         if self.testOn==True:
@@ -320,67 +336,9 @@ class MainPage(Frame):
             
         self.buttonRun.config(state=NORMAL)
 
-        
-    def testEnd(self):
-        if not self.filewritename.get()=="":
-            try:
-                self.filewrite=open(self.filewritename.get()+".csv","x")
-                
-                if self.sphfileLoaded==True and self.kidfileLoaded==True:
-                    self.filewrite.write("Time (s),Sphere Concentration,Sphere Activity,Kidney Concentration,Kidney Activity\n")
-                elif self.sphfileLoaded==False and self.kidfileLoaded==True:
-                    self.filewrite.write("Time (s),Kidney Concentration,Kidney Activity\n")
-                elif self.sphfileLoaded==True and self.kidfileLoaded==False:
-                    self.filewrite.write("Time (s),Sphere Concentration,Sphere Activity\n")
-                        
-                self.filewrite.close()
-                
-                self.filewrite=open(self.filewritename.get()+".csv","a")
-                
-                for i in range(0,len(self.t)-1):
-                    if self.sphfileLoaded==True and self.kidfileLoaded==True:
-                        self.filewrite.write(str(self.t[i])+","+str(self.rawSph[i])+","+str(self.rawKid[i])+","+str(self.concSph[i])+","+str(self.concKid[i])+"\n")
-                    elif self.sphfileLoaded==False and self.kidfileLoaded==True:
-                        self.filewrite.write(str(self.t[i])+","+str(self.rawKid[i])+","+str(self.concKid[i])+"\n")
-                    elif self.sphfileLoaded==True and self.kidfileLoaded==False:
-                        self.filewrite.write(str(self.t[i])+","+str(self.rawSph[i])+","+str(self.concSph[i])+"\n")
-                        
-                self.filewrite.close()
-            except Exception as e:
-                self.update_serial_text(f"Specified write file already exists, file saved as {self.filewritename.get()}(1).csv")
-
-                self.filewrite=open(self.filewritename.get()+"(1)"+".csv","x")
-
-                if self.sphfileLoaded==True and self.kidfileLoaded==True:
-                    self.filewrite.write("Time (s),Sphere Concentration,Sphere Activity,Kidney Concentration,Kidney Activity\n")
-                elif self.sphfileLoaded==False and self.kidfileLoaded==True:
-                    self.filewrite.write("Time (s),Kidney Concentration,Kidney Activity\n")
-                elif self.sphfileLoaded==True and self.kidfileLoaded==False:
-                    self.filewrite.write("Time (s),Sphere Concentration,Sphere Activity\n")
-                        
-                self.filewrite.close()
-
-                self.filewrite=open(self.filewritename.get()+".csv","a")
-
-                for i in range(0,len(self.t)-1):
-                    if self.sphfileLoaded==True and self.kidfileLoaded==True:
-                        self.filewrite.write(str(self.t[i])+","+str(self.rawSph[i])+","+str(self.rawKid[i])+","+str(self.concSph[i])+","+str(self.concKid[i])+"\n")
-                    elif self.sphfileLoaded==False and self.kidfileLoaded==True:
-                        self.filewrite.write(str(self.t[i])+","+str(self.rawKid[i])+","+str(self.concKid[i])+"\n")
-                    elif self.sphfileLoaded==True and self.kidfileLoaded==False:
-                        self.filewrite.write(str(self.t[i])+","+str(self.rawSph[i])+","+str(self.concSph[i])+"\n")
-                        
-                self.filewrite.close()
-        
-        self.buttonStop.config(state=DISABLED)
-        self.buttonRun.config(state=NORMAL)
-        self.buttonCali.config(state=NORMAL)
-        self.buttonFlush.config(state=NORMAL)
-
-        self.testOn=False
-        
     def stopTest(self):
-        self.send_data("5\n")
+        if self.testEnd==False:
+            self.send_data("5\n")
         if not self.filewritename.get()=="":
             try:
                 self.filewrite=open(self.filewritename.get()+".csv","x")
@@ -436,8 +394,12 @@ class MainPage(Frame):
         self.buttonRun.config(state=NORMAL)
         self.buttonCali.config(state=NORMAL)
         self.buttonFlush.config(state=NORMAL)
-
+        if self.sphfileOpened==True:
+            self.buttonLoadCurveSphere.config(state=NORMAL)
+        if self.kidfileOpened==True:
+            self.buttonLoadCurveKidney.config(state=NORMAL)
         self.testOn=False
+        self.testEnd=False
         
     def openFile(self,selected_file_label,cham):
         file_path = filedialog.askopenfilename(title="Select a File", filetypes=[("CSV", "*.csv")])
@@ -554,7 +516,9 @@ class MainPage(Frame):
             self.buttonRun.config(state=DISABLED)
             self.buttonStop.config(state=DISABLED)
             self.buttonLoadCurveSphere.config(state=DISABLED)
+            self.app_instance.buttonCOM.config(text="Connect",command=self.app_instance.connectCOM)
 
+            self.COMconnected=False
             self.testOn=False
             self.sphfileLoaded=False
             self.kidfileLoaded=False
