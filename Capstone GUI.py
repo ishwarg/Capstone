@@ -105,7 +105,6 @@ class SerialManager:
     def close(self):
         self.app_instance.buttonCOM.config(text="Connect",command=self.app_instance.connectCOM)
         self.COMconnected=False
-        self.thread_read.join()
         self.ser.close()
        
 class MainPage(Frame):
@@ -248,6 +247,7 @@ class MainPage(Frame):
                 self.axSph.plot(self.timeconcspht,self.timeconcsphy)
                 self.axSph.plot(self.t[0:self.i-1],self.concSph[0:self.i-1])
                 self.axSpher.plot(self.t[0:self.i-1],self.erSph[0:self.i-1])
+                
             if self.kidfileLoaded==True:
                 self.axKid.clear()
                 self.axKider.clear()
@@ -453,15 +453,28 @@ class MainPage(Frame):
             self.buttonCali.config(state=NORMAL)
             self.buttonFlush.config(state=NORMAL)
             if self.kidfileOpened==True:
-                self.buttonRun.config(state=NORMAL)
                 self.buttonLoadCurveKidney.config(state=NORMAL)
             if self.sphfileOpened==True:
-                self.buttonRun.config(state=NORMAL)
                 self.buttonLoadCurveSphere.config(state=NORMAL)
             self.COMconnected=True
-            self.buttonCOM.config(text="Disconnect",command=self.serial_manager.close)
+            self.update_serial_text("Connected to serial port")
+            self.buttonCOM.config(text="Disconnect",command=self.disconnect)
         except serial.SerialException:
             self.update_serial_text("Failed to Connect")
+    def disconnect(self):
+        if hasattr(self, 'serial_manager'):
+            self.serial_manager.close()
+            self.update_serial_text("Disconnected from serial port")
+            self.buttonCali.config(state=DISABLED)
+            self.buttonFlush.config(state=DISABLED)
+            self.buttonLoadCurveKidney.config(state=DISABLED)
+            self.buttonRun.config(state=DISABLED)
+            self.buttonStop.config(state=DISABLED)
+            self.buttonLoadCurveSphere.config(state=DISABLED)
+            self.testOn=False
+            self.sphfileLoaded=False
+            self.kidfileLoaded=False
+     
             
 
 root=Tk()
