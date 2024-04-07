@@ -45,7 +45,7 @@ class SerialManager:
         self.thread_read.start()
         
     def send_data(self, data):
-        time.sleep(0.010)
+        time.sleep(0.100)
         self.ser.write(data.encode())
 
     def read_data_thread(self):
@@ -65,7 +65,7 @@ class SerialManager:
                     if self.app_instance.sphfileLoaded==True and self.app_instance.kidfileLoaded==True:
                         row=parse.parse("{} {} {}",received_data)
                     else:
-                        row=parse.parse("{} {} {}",received_data)
+                        row=parse.parse("{} {}",received_data)
                     
                     if not isinstance(row, type(None)):
                         try:
@@ -524,7 +524,7 @@ class MainPage(Frame):
             self.buttonRun.config(state=DISABLED)
             self.buttonStop.config(state=DISABLED)
             self.buttonLoadCurveSphere.config(state=DISABLED)
-            self.app_instance.buttonCOM.config(text="Connect",command=self.app_instance.connectCOM)
+            self.buttonCOM.config(text="Connect",command=self.connectCOM)
 
             self.COMconnected=False
             self.testOn=False
