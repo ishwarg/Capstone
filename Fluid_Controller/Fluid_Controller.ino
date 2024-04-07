@@ -61,7 +61,7 @@ int state = 5;
 int pidState = 0;
 bool flowState = false;
 int numRows = 0;
-double curve[MAX_ROWS][2] = { { 0.0, 130.0 }, { 60.0, 0.0 } };
+double curve[MAX_ROWS][2]; // = { { 0.0, 140.0 }, { 60.0, 0.0 } };
 int curveIndex = 0;
 
 const byte numRowsSize = sizeof(int);
@@ -70,7 +70,8 @@ const int BUFFER_SIZE = 5;  // 4 bytes for the string + 1 for null terminator
 char buffer[BUFFER_SIZE];   // Buffer to store the received bytes
 int currentTime = millis();
 
-double kidneyGains[2][3] = { { 0.6, 0.6, 0.01 }, { 0.2, 0.15, 0.01 } };
+double kidneyGains[2][3] = { { 0.4, 0.5, 0.01 }, { 0.2, 0.15, 0.01 } };
+double sphereGains[2][3] = { { 0.05, 0.18, 0.01 }, { 0.05, 0.05, 0.01 } };
 
 void setup() {
   pinMode(WATER, OUTPUT);
@@ -101,8 +102,6 @@ void loop() {
 
   if (state == RUN) {
 
-    
-    
     if(currentTime-runStart<=RAMP_TIME){
       Setpoint = curve[0][1];
       currentTime = millis();
@@ -112,7 +111,8 @@ void loop() {
     }
     
     Setpoint = curve[curveIndex][1];
-    //Setpoint = 130.0 * exp(-0.005*(double)(millis()-currentTime)/1000.0);
+    // unsigned long setpointTime = millis();
+    // Setpoint = 140.0 * exp(-0.005*(double)(setpointTime-currentTime)/1000.0);
 
 
     if (curveIndex >= numRows) {
@@ -128,6 +128,9 @@ void loop() {
     Kp = linearInterpolation(Setpoint, 140, 40, kidneyGains[0][0], kidneyGains[1][0]);
     Ki = linearInterpolation(Setpoint, 140, 40, kidneyGains[0][1], kidneyGains[1][1]);
     Kd = linearInterpolation(Setpoint, 140, 40, kidneyGains[0][2], kidneyGains[1][2]);
+    // Kp = linearInterpolation(Setpoint, 140, 40, sphereGains[0][0], sphereGains[1][0]);
+    // Ki = linearInterpolation(Setpoint, 140, 40, sphereGains[0][1], sphereGains[1][1]);
+    // Kd = linearInterpolation(Setpoint, 140, 40, sphereGains[0][2], sphereGains[1][2]);
     // //Serial.print(0);
     myPID.SetTunings(Kp, Ki, Kd);
 
@@ -187,7 +190,7 @@ void loop() {
 
     delay(1000);
     for (int i = 0; i < 50; i++) {
-      water_conc += analogRead(0);
+      water_conc += analogRead(CONCENTRATION_OUTLET);
     }
     water_conc = water_conc / 50;
 
@@ -203,14 +206,16 @@ void loop() {
 
     delay(1000);
     for (int i = 0; i < 50; i++) {
-      salt_conc += analogRead(0);
+      salt_conc += analogRead(CONCENTRATION_OUTLET);
     }
     salt_conc = salt_conc / 50;
+    Serial.println(salt_conc);
+    Serial.println(water_conc);
 
     state = STOP;
   }
   if (state == CURVELOAD) {
-    Serial.println("curveload");
+    //Serial.println("curveload");
     analogWrite(WATER, OFF);
     analogWrite(SALT, OFF);
     while (Serial.available()==0) {
