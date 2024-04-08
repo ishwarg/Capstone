@@ -161,7 +161,7 @@ class MainPage(Frame):
         self.entLabfile=Label(self,text="Created File Name")
         self.entfile=Entry(self,textvariable=self.filewritename)
         
-        self.entLabActivity=Label(self,text="Activity Measurement (MBq/mL)")
+        self.entLabActivity=Label(self,text="Activity Measurement (kBq/mL)")
         self.entActivity=Entry(self,textvariable=self.activity)
         
         self.entLabActivityTime=Label(self,text="Measurement Time (YY-MM-DD HH:MM:SS)")
@@ -204,9 +204,9 @@ class MainPage(Frame):
         self.axSpher.set_xlabel("Time, (s)")
         self.axKid.set_xlabel("Time, (s)")
         self.axKider.set_xlabel("Time, (s)")
-        self.axSph.set_ylabel("Sphere Activity, (MBq/mL)")
+        self.axSph.set_ylabel("Sphere Activity, (kBq/mL)")
         self.axSpher.set_ylabel("Sphere Error, (%)")
-        self.axKid.set_ylabel("Kidney Activity, (MBq/mL)")
+        self.axKid.set_ylabel("Kidney Activity, (kBq/mL)")
         self.axKider.set_ylabel("Kidney Error, (%)")
 
         self.canvas=FigureCanvasTkAgg(self.fig,master=self)
