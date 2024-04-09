@@ -1,7 +1,7 @@
 #include <PID_v1.h>
 
-#define WATER 10
-#define SALT 7
+#define WATER 4
+#define SALT 2
 #define CONCENTRATION_INLET 0
 #define CONCENTRATION_OUTLET 0
 
@@ -21,18 +21,21 @@
 #define OFF 0
 #define WATER_SPEED 190
 #define SALT_SPEED 120
-#define WATER_MIN 50
+#define WATER_MIN 85
 #define SALT_MIN 80
 
 #define SETPOINT_THRESHOLD 40
 #define WINDOW_SIZE 100
 
-#define SALTKP 1.0
+#define SALTKP 0.1
 #define SALTKI 0.0
 #define SALTKD 0.00
 #define WATERKP 0.0
 #define WATERKI 0.0
 #define WATERKD 0.0
+
+#define UPPER_SETPOINT 180
+#define LOWER_SETPOINT 40
 
 double Setpoint, Input, Output;
 
@@ -40,7 +43,8 @@ double Kp = SALTKP, Ki = SALTKI, Kd = SALTKD;
 PID myPID(&Input, &Output, &Setpoint, Kp, Ki, Kd, DIRECT);
 
 
-float conc = 0;
+float A2Conc = 0;
+float A0Conc = 0;
 float saltConc = 0;
 float waterConc = 0;
 
@@ -52,14 +56,14 @@ double lowerBoundTracer;
 
 int state = 5;
 int numRows = 0;
-double curve[MAX_ROWS][2];// = { { 0.0, 140.0 }, { 60.0, 0.0 } };
+double curve[MAX_ROWS][2] = { { 0.0, UPPER_SETPOINT }, { 60.0, 0.0 } };
 int curveIndex = 0;
 
 
 unsigned long currentTime = millis();
 
-double kidneyGains[2][3] = { { 0.4, 0.5, 0.01 }, { 0.2, 0.15, 0.01 } };
-double sphereGains[2][3] = { { 0.05, 0.18, 0.01 }, { 0.05, 0.05, 0.01 } };
+double kidneyGains[2][3] = { { 0.07, 0.1, 0.005 }, { 0.05, 0.5, 0.005 } };
+double sphereGains[2][3] = { { 0.1, 0.4, 0.01 }, { 0.04, 0.14, 0.005 }};
 
 void setup() {
   pinMode(WATER, OUTPUT);
@@ -84,9 +88,12 @@ void loop() {
 
 
   for (int i = 0; i < WINDOW_SIZE; i++) {
-    conc += analogRead(CONCENTRATION_OUTLET);
+    A2Conc += analogRead(CONCENTRATION_OUTLET);
+    A0Conc += analogRead(CONCENTRATION_INLET);
+
   }
-  conc = conc / WINDOW_SIZE;
+  A2Conc = A2Conc / WINDOW_SIZE;
+  A0Conc = A0Conc / WINDOW_SIZE;
 
   if (state == RUN) {
 
@@ -97,10 +104,11 @@ void loop() {
     
     
     
-    currentTime = millis();
+    /*currentTime = millis();
     if (currentTime - runStart >= (int)curve[curveIndex + 1][0] * 1000) {
       curveIndex++;
     }
+    */
     Setpoint = curve[curveIndex][1];
 
     //  unsigned long setpointTime = millis();
@@ -113,17 +121,17 @@ void loop() {
       curveIndex = 0;
     }
 
-    Input = conc;
+    Input = A2Conc;
     //myPID.SetSampleTime(8);
-    int waterCommand = (int)linearInterpolation(Setpoint, 40, 140, 250, 80);
+    int waterCommand = (int)linearInterpolation(Setpoint, LOWER_SETPOINT, UPPER_SETPOINT, 250, WATER_MIN);
     analogWrite(WATER, waterCommand);
 
-    Kp = linearInterpolation(Setpoint, 140, 40, kidneyGains[0][0], kidneyGains[1][0]);
-    Ki = linearInterpolation(Setpoint, 140, 40, kidneyGains[0][1], kidneyGains[1][1]);
-    Kd = linearInterpolation(Setpoint, 140, 40, kidneyGains[0][2], kidneyGains[1][2]);
-    // Kp = linearInterpolation(Setpoint, 140, 40, sphereGains[0][0], sphereGains[1][0]);
-    // Ki = linearInterpolation(Setpoint, 140, 40, sphereGains[0][1], sphereGains[1][1]);
-    // Kd = linearInterpolation(Setpoint, 140, 40, sphereGains[0][2], sphereGains[1][2]);
+    Kp = linearInterpolation(Setpoint, UPPER_SETPOINT, LOWER_SETPOINT, kidneyGains[0][0], kidneyGains[1][0]);
+    Ki = linearInterpolation(Setpoint, UPPER_SETPOINT, LOWER_SETPOINT, kidneyGains[0][1], kidneyGains[1][1]);
+    Kd = linearInterpolation(Setpoint, UPPER_SETPOINT, LOWER_SETPOINT, kidneyGains[0][2], kidneyGains[1][2]);
+    // Kp = linearInterpolation(Setpoint, UPPER_SETPOINT, LOWER_SETPOINT, sphereGains[0][0], sphereGains[1][0]);
+    // Ki = linearInterpolation(Setpoint, UPPER_SETPOINT, LOWER_SETPOINT, sphereGains[0][1], sphereGains[1][1]);
+    // Kd = linearInterpolation(Setpoint, UPPER_SETPOINT, LOWER_SETPOINT, sphereGains[0][2], sphereGains[1][2]);
     // //Serial.print(0);
     myPID.SetTunings(Kp, Ki, Kd);
 
@@ -131,23 +139,23 @@ void loop() {
     analogWrite(SALT, (int)Output);
 
     double time = (double)(millis()-runStart)/1000.0;
-    Serial.print(time);
+    // Serial.print(time);
+    // Serial.print(" ");
+    Serial.print(0);
     Serial.print(" ");
-    Serial.println(conc);
-    // Serial.print(" ");
-    // Serial.print(Setpoint);
-    // Serial.print(" ");
+    Serial.print(Setpoint);
+    Serial.print(" ");
+    Serial.print(A2Conc);
+    Serial.print(" ");
     // Serial.print(0);
     // Serial.print(" ");
-    // Serial.print(waterCommand);
-    // Serial.print(" ");
-    // Serial.print((int)Output);
-    // Serial.print(" ");
-    // Serial.print(Ki, 3);
-    // Serial.print(" ");
-    // Serial.print(Setpoint * 1.1);
-    // Serial.print(" ");
-    // Serial.println(Setpoint * 0.9);
+    Serial.print(waterCommand);
+    Serial.print(" ");
+    Serial.print((int)Output);
+    Serial.print(" ");
+    Serial.print(Setpoint * 1.1);
+    Serial.print(" ");
+    Serial.println(Setpoint * 0.9);
   }
 
   else if (state == FLUSH) {
@@ -157,14 +165,9 @@ void loop() {
     analogWrite(WATER, FULL_SPEED);
     analogWrite(SALT, FULL_SPEED);
 
-    flushStart = millis();
-    int current = millis();
-    while (current - flushStart <= 10000) {
-      Serial.print("flushing");
-      Serial.print(" ");
-      Serial.println(analogRead(CONCENTRATION_OUTLET));
-      current = millis();
-    }
+    
+    delay(10000);
+    Serial.println(analogRead(CONCENTRATION_OUTLET));
     analogWrite(WATER, OFF);
     analogWrite(SALT, OFF);
     Serial.println("Done Flush");
@@ -259,7 +262,9 @@ void loop() {
   else if (state == SALT_MEASURE) {
     // analogWrite(WATER, 120);
     // analogWrite(SALT, 120);
-    Serial.println(conc);
+    Serial.print(A0Conc);
+    Serial.print(" ");
+    Serial.println(A2Conc);
   }
 
 
@@ -285,7 +290,7 @@ void loop() {
         String receivedString = Serial.readStringUntil('\n');
         
         initialActivity = receivedString.toDouble();
-        lowerBoundTracer = linearInterpolation(40.0,saltConc,waterConc,initialActivity, 0);
+        lowerBoundTracer = linearInterpolation(LOWER_SETPOINT,saltConc,waterConc,initialActivity, 0);
       }
        
     } else if (inChar.equals("2")) {
