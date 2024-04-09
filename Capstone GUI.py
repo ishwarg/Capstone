@@ -195,7 +195,7 @@ class MainPage(Frame):
         self.erKid=[0]
         self.i=0
         
-        self.fig=Figure(figsize=(5,5),dpi=100)
+        self.fig=Figure(figsize=(8,8),dpi=75)
         self.axSph=self.fig.add_subplot(221)
         self.axSpher=self.fig.add_subplot(222)
         self.axKid=self.fig.add_subplot(223)
@@ -211,7 +211,7 @@ class MainPage(Frame):
 
         self.canvas=FigureCanvasTkAgg(self.fig,master=self)
         self.toolbarFrame=Frame(self)
-        self.toolbarFrame.grid(row=12,column=4,columnspan=2,padx=5,pady=5)
+        self.toolbarFrame.grid(row=11,column=4,columnspan=2,padx=5,pady=5)
         self.toolbar = NavigationToolbar2Tk(self.canvas,self.toolbarFrame)
        
         self.animate()
@@ -324,7 +324,7 @@ class MainPage(Frame):
         
     def loadCurve(self,cham):
         if cham=="sph":
-            self.send_data("4\n")
+            self.send_data("10\n")
             self.send_data(str(self.filesizesph)+"\n")
             
             for x in self.timeconcDecsph:
@@ -333,7 +333,7 @@ class MainPage(Frame):
             
             self.sphfileLoaded=True
         else:
-            self.send_data("4\n")
+            self.send_data("11\n")
             self.send_data(str(self.filesizekid)+"\n")
             
             for x in self.timeconcDeckid:
