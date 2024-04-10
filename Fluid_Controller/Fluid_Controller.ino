@@ -2,7 +2,7 @@
 
 #define WATER 4
 #define SALT 2
-#define CONCENTRATION_INLET 0
+#define CONCENTRATION_INLET 2
 #define CONCENTRATION_OUTLET 0
 
 #define RUN 1
@@ -43,8 +43,8 @@ double Kp = SALTKP, Ki = SALTKI, Kd = SALTKD;
 PID myPID(&Input, &Output, &Setpoint, Kp, Ki, Kd, DIRECT);
 
 
-float A2Conc = 0;
-float A0Conc = 0;
+float kidneyConc = 0;
+float sphereConc = 0;
 float saltConc = 0;
 float waterConc = 0;
 
@@ -62,7 +62,7 @@ int curveIndex = 0;
 
 unsigned long currentTime = millis();
 
-double kidneyGains[2][3] = { { 0.07, 0.1, 0.005 }, { 0.05, 0.5, 0.005 } };
+double kidneyGains[2][3] = { { 0.07, 0.05, 0.005 }, { 0.05, 0.5, 0.005 } };
 double sphereGains[2][3] = { { 0.1, 0.4, 0.01 }, { 0.04, 0.14, 0.005 }};
 
 void setup() {
@@ -88,12 +88,12 @@ void loop() {
 
 
   for (int i = 0; i < WINDOW_SIZE; i++) {
-    A2Conc += analogRead(CONCENTRATION_OUTLET);
-    A0Conc += analogRead(CONCENTRATION_INLET);
+    kidneyConc += analogRead(CONCENTRATION_OUTLET);
+    sphereConc += analogRead(CONCENTRATION_INLET);
 
   }
-  A2Conc = A2Conc / WINDOW_SIZE;
-  A0Conc = A0Conc / WINDOW_SIZE;
+  kidneyConc = kidneyConc / WINDOW_SIZE;
+  sphereConc = sphereConc / WINDOW_SIZE;
 
   if (state == RUN) {
 
@@ -121,7 +121,7 @@ void loop() {
       curveIndex = 0;
     }
 
-    Input = A2Conc;
+    Input = kidneyConc;
     //myPID.SetSampleTime(8);
     int waterCommand = (int)linearInterpolation(Setpoint, LOWER_SETPOINT, UPPER_SETPOINT, 250, WATER_MIN);
     analogWrite(WATER, waterCommand);
@@ -145,7 +145,7 @@ void loop() {
     Serial.print(" ");
     Serial.print(Setpoint);
     Serial.print(" ");
-    Serial.print(A2Conc);
+    Serial.print(kidneyConc);
     Serial.print(" ");
     // Serial.print(0);
     // Serial.print(" ");
@@ -262,9 +262,9 @@ void loop() {
   else if (state == SALT_MEASURE) {
     // analogWrite(WATER, 120);
     // analogWrite(SALT, 120);
-    Serial.print(A0Conc);
+    Serial.print(sphereConc);
     Serial.print(" ");
-    Serial.println(A2Conc);
+    Serial.println(kidneyConc);
   }
 
 
@@ -293,16 +293,20 @@ void loop() {
         lowerBoundTracer = linearInterpolation(LOWER_SETPOINT,saltConc,waterConc,initialActivity, 0);
       }
        
-    } else if (inChar.equals("2")) {
+    } 
+    else if (inChar.equals("2")) {
       Serial.println(CALIBRATE);
       state = CALIBRATE;
-    } else if (inChar.equals("3")) {
+    } 
+    else if (inChar.equals("3")) {
       state = FLUSH;
 
-    } else if (inChar.equals("4")) {
+    } 
+    else if (inChar.equals("4")) {
       // Serial.println(CURVELOAD);
       state = CURVELOAD;
-    } else if (inChar.equals("5")) {
+    } 
+    else if (inChar.equals("5")) {
       Serial.println("Stopping");
       state = STOP;
     }

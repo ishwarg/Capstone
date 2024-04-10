@@ -5,7 +5,7 @@
 #define WATERS 10
 #define SALTS 7
 #define KIDNEY_CONC 0
-#define SPHERE_CONC 0
+#define SPHERE_CONC 2
 
 #define RUN 1
 #define CALIBRATE 2
@@ -22,8 +22,7 @@
 
 #define FULL_SPEED 255
 #define OFF 0
-#define WATER_SPEED 190
-#define SALT_SPEED 120
+
 #define WATER_MIN 85
 #define SALT_MIN 80
 
@@ -53,7 +52,7 @@ float kidneyConc = 0;
 float sphereConc = 0;
 
 float saltConcSphere = 0;
-float saltConcKidney = 0;
+float saltConcKidney = 5;
 float waterConcSphere = 0;
 float waterConcKidney = 0;
 
@@ -119,6 +118,8 @@ void loop() {
   }
   kidneyConc = kidneyConc / WINDOW_SIZE;
   sphereConc = sphereConc / WINDOW_SIZE;
+  kidneyConc = linearInterpolation(kidneyConc, saltConcKidney, waterConcKidney, initialActivity, 0);
+  sphereConc = linearInterpolation(sphereConc, saltConcSphere, waterConcSphere, initialActivity, 0);
 
   if (state == RUN) {
 
@@ -131,7 +132,8 @@ void loop() {
 
       if (curveIndexk >= numRowsk) {
       state = STOP;  // MAYBE HAVE A MESSAGE THAT PRINTS OUT THE PROFILE HAS BEEN COMPLETED
-      Serial.println("Finished... Stopping...");
+      Serial.println("Finished Kidneys");
+      Serial.println(numRowsk);
       curveIndexk = 0;
       }
 
@@ -155,11 +157,14 @@ void loop() {
     }
 
     if(sphLoaded==1){
-    
+      if (currentTime - runStart >= (int)curveKid[curveIndexs + 1][0] * 1000) {
+      curveIndexs++;
+      }
 
       if (curveIndexs >= numRowss) {
         state = STOP;  // MAYBE HAVE A MESSAGE THAT PRINTS OUT THE PROFILE HAS BEEN COMPLETED
-        Serial.println("Finished... Stopping...");
+        Serial.println("Finished Spheres");
+        Serial.println(numRowss);
         curveIndexs = 0;
       }
       Setpoints = curveSph[curveIndexs][1];
@@ -185,17 +190,19 @@ void loop() {
     Serial.print(testTime);
     Serial.print(" ");
     if (sphLoaded == 1 && kidLoaded == 1){
-      Serial.print(kidneyConc);
+      Serial.print(kidneyConc,5);
       Serial.print(" ");
-      Serial.println(sphereConc);
+      Serial.println(sphereConc,5);
     
     }
     else if (sphLoaded == 1){
-      Serial.println(sphereConc);
+      Serial.println(sphereConc,5);
     }
-    else
-      Serial.println(kidneyConc);
-
+    else{
+      // Serial.print(Setpointk);
+      // Serial.print(" ");
+      Serial.println(kidneyConc,5);
+    }
 
     // Serial.print(0);
     // Serial.print(" ");
@@ -233,16 +240,19 @@ void loop() {
 
   else if (state == CALIBRATE) {
     Serial.println("calibrate");
+
     if(kidLoaded==1){
     analogWrite(WATERK, FULL_SPEED);
     analogWrite(SALTK, OFF);
     }
+
     if(sphLoaded==1){
     analogWrite(WATERS, FULL_SPEED);
     analogWrite(SALTS, OFF);
     }
    
     delay(CALIBRATION_TIME);
+
     if(kidLoaded==1){
     analogWrite(WATERK, OFF);
     analogWrite(SALTK, OFF);
@@ -253,17 +263,17 @@ void loop() {
     }
 
     delay(1000);
+    if(sphLoaded==1){
+    for (int i = 0; i < 50; i++) {
+      waterConcSphere += (float)analogRead(SPHERE_CONC);
+    }
+    waterConcSphere = waterConcSphere / 50.0;
+    }
     if(kidLoaded==1){
     for (int i = 0; i < 50; i++) {
-      waterConcSphere += analogRead(SPHERE_CONC);
+      waterConcKidney += (float)analogRead(KIDNEY_CONC);
     }
-    waterConcSphere = waterConcSphere / 50;
-    }
-    if(sphLoaded==1){
-          for (int i = 0; i < 50; i++) {
-      waterConcKidney += analogRead(KIDNEY_CONC);
-    }
-    waterConcKidney = waterConcSphere / 50;
+    waterConcKidney = waterConcKidney / 50.0;
     }
     
     if(kidLoaded==1){
@@ -288,17 +298,17 @@ void loop() {
 
     delay(1000);
 
+    if(sphLoaded==1){
+    for (int i = 0; i < 50; i++) {
+      saltConcSphere += (float)analogRead(SPHERE_CONC);
+    }
+    saltConcSphere = saltConcSphere / 50.0;
+    }
     if(kidLoaded==1){
     for (int i = 0; i < 50; i++) {
-      saltConcSphere += analogRead(SPHERE_CONC);
+      saltConcKidney += (float)analogRead(KIDNEY_CONC);
     }
-    saltConcSphere = saltConcSphere / 50;
-    }
-    if(sphLoaded==1){
-          for (int i = 0; i < 50; i++) {
-      saltConcKidney += analogRead(KIDNEY_CONC);
-    }
-    saltConcKidney = saltConcSphere / 50;
+    saltConcKidney = saltConcKidney / 50.0;
     }
 
     Serial.println(saltConcSphere);
@@ -318,7 +328,7 @@ void loop() {
     if (Serial.available() > 0) {
       // Serial.readBytes((char*)&numRows, numRowsSize); // Read numRows as an int
       receivedString = Serial.readStringUntil('\n');
-      Serial.println("Received numRows: " + receivedString);
+      Serial.println("Received Sphere numRows: " + receivedString);
       numRowss = receivedString.toInt();
 
       // Define the 2D array to store received data
@@ -356,7 +366,7 @@ void loop() {
     if (Serial.available() > 0) {
       // Serial.readBytes((char*)&numRows, numRowsSize); // Read numRows as an int
       receivedString = Serial.readStringUntil('\n');
-      Serial.println("Received numRows: " + receivedString);
+      Serial.println("Received Kidney numRows: " + receivedString);
       numRowsk = receivedString.toInt();
 
       // Define the 2D array to store received data
@@ -398,9 +408,9 @@ void loop() {
   else if (state == SALT_MEASURE) {
     // analogWrite(WATER, 120);
     // analogWrite(SALT, 120);
-    Serial.print(sphereConc);
+    Serial.print(analogRead(SPHERE_CONC));
     Serial.print(" ");
-    Serial.println(kidneyConc);
+    Serial.println(analogRead(KIDNEY_CONC));
   }
 
 
@@ -416,9 +426,9 @@ void loop() {
     if (inChar.equals("1")) {
       state = RUN;
       //Serial.println("About to start...");
-      if (kidLoaded = 1)
+      if (kidLoaded == 1)
         myPIDK.SetMode(AUTOMATIC);
-      if (sphLoaded = 1)
+      if (sphLoaded == 1)
         myPIDS.SetMode(AUTOMATIC);
       runStart = millis();
       currentTime = millis();
