@@ -63,28 +63,29 @@ class SerialManager:
                         self.app_instance.stopTest()
                     
                     if self.app_instance.sphfileLoaded==True and self.app_instance.kidfileLoaded==True:
-                        row=parse.parse("{} {} {}",received_data)
+                        row=parse.parse("{} {} {} {} {}",received_data)
                     else:
-                        row=parse.parse("{} {}",received_data)
+                        row=parse.parse("{} {} {}",received_data)
                     
                     if not isinstance(row, type(None)):
                         try:
                             if self.app_instance.sphfileLoaded==True and self.app_instance.kidfileLoaded==True:
                                 self.app_instance.t.append(float(row[0]))
                                 
-                                self.app_instance.rawSph.append(float(row[1]))
-                                self.app_instance.rawKid.append(float(row[2]))
-                                
                                 self.app_instance.concSph.append(float(row[1])*math.exp(-float(row[0])*float(self.app_instance.dec.get())))
-                                self.app_instance.concKid.append(float(row[2])*math.exp(-float(row[0])*float(self.app_instance.dec.get())))
-                                
-                                if not self.app_instance.timeconcsphy[(np.abs(np.array(self.app_instance.timeconcspht) - float(row[0]))).argmin()]==0:
-                                    self.app_instance.erSph.append(100*(float(row[1])*math.exp(-float(row[0])*float(self.app_instance.dec.get()))-self.app_instance.timeconcsphy[(np.abs(np.array(self.app_instance.timeconcspht) - float(row[0]))).argmin()])/self.app_instance.timeconcsphy[(np.abs(np.array(self.app_instance.timeconcspht) - float(row[0]))).argmin()])
+                                self.app_instance.concKid.append(float(row[3])*math.exp(-float(row[0])*float(self.app_instance.dec.get())))
+                                self.app_instance.setKid.append(float(row[4])*math.exp(-float(row[0])*float(self.app_instance.dec.get())))
+                                self.app_instance.setSph.append(float(row[2])*math.exp(-float(row[0])*float(self.app_instance.dec.get())))
+
+                                if not float(row[2])==0:
+                                    #self.app_instance.erSph.append(100*(float(row[1])*math.exp(-float(row[0])*float(self.app_instance.dec.get()))-self.app_instance.timeconcsphy[(np.abs(np.array(self.app_instance.timeconcspht) - float(row[0]))).argmin()])/self.app_instance.timeconcsphy[(np.abs(np.array(self.app_instance.timeconcspht) - float(row[0]))).argmin()])
+                                    self.app_instance.erSph.append(100*(float(row[1])-float(row[2]))/float(row[2]))
                                 else:
                                     self.app_instance.erSph.append(0)
                                     
-                                if not self.app_instance.timeconckidy[(np.abs(np.array(self.app_instance.timeconckidt) - float(row[0]))).argmin()]==0:
-                                    self.app_instance.erKid.append(100*(float(row[2])*math.exp(-float(row[0])*float(self.app_instance.dec.get()))-self.app_instance.timeconckidy[(np.abs(np.array(self.app_instance.timeconckidt) - float(row[0]))).argmin()])/self.app_instance.timeconckidy[(np.abs(np.array(self.app_instance.timeconckidt) - float(row[0]))).argmin()])
+                                if not float(row[4])==0:
+                                    self.app_instance.erKid.append(100*(float(row[3])-float(row[4]))/float(row[4]))
+
                                 else:
                                     self.app_instance.erKid.append(0)
                                     
@@ -93,11 +94,11 @@ class SerialManager:
                             if self.app_instance.sphfileLoaded==True and self.app_instance.kidfileLoaded==False:
                                 self.app_instance.t.append(float(row[0]))
                                 
-                                self.app_instance.rawSph.append(float(row[1]))
                                 self.app_instance.concSph.append(float(row[1])*math.exp(-float(row[0])*float(self.app_instance.dec.get())))
-                                
-                                if not self.app_instance.timeconcsphy[(np.abs(np.array(self.app_instance.timeconcspht) - float(row[0]))).argmin()]==0:
-                                    self.app_instance.erSph.append(100*(float(row[1])*math.exp(-float(row[0])*float(self.app_instance.dec.get()))-self.app_instance.timeconcsphy[(np.abs(np.array(self.app_instance.timeconcspht) - float(row[0]))).argmin()])/self.app_instance.timeconcsphy[(np.abs(np.array(self.app_instance.timeconcspht) - float(row[0]))).argmin()])
+                                self.app_instance.setSph.append(float(row[2])*math.exp(-float(row[0])*float(self.app_instance.dec.get())))
+
+                                if not float(row[2])==0:
+                                    self.app_instance.erSph.append(100*(float(row[1])-float(row[2]))/float(row[2]))
                                 else:
                                     self.app_instance.erSph.append(0)
 
@@ -106,11 +107,10 @@ class SerialManager:
                             if self.app_instance.sphfileLoaded==False and self.app_instance.kidfileLoaded==True:
                                 self.app_instance.t.append(float(row[0]))
                                 
-                                self.app_instance.rawKid.append(float(row[1]))
                                 self.app_instance.concKid.append(float(row[1])*math.exp(-float(row[0])*float(self.app_instance.dec.get())))
-
-                                if not self.app_instance.timeconckidy[(np.abs(np.array(self.app_instance.timeconckidt) - float(row[0]))).argmin()]==0:
-                                    self.app_instance.erKid.append(100*(float(row[1])*math.exp(-float(row[0])*float(self.app_instance.dec.get()))-self.app_instance.timeconckidy[(np.abs(np.array(self.app_instance.timeconckidt) - float(row[0]))).argmin()])/self.app_instance.timeconckidy[(np.abs(np.array(self.app_instance.timeconckidt) - float(row[0]))).argmin()])
+                                self.app_instance.setKid.append(float(row[2])*math.exp(-float(row[0])*float(self.app_instance.dec.get())))
+                                if not float(row[2])==0:
+                                    self.app_instance.erKid.append(100*(float(row[1])-float(row[2]))/float(row[2]))
                                 else:
                                     self.app_instance.erKid.append(0)
                                     
@@ -153,7 +153,7 @@ class MainPage(Frame):
         self.activity.set("50")
         
         self.activityTime=StringVar()
-        self.activityTime.set("2024-04-07 00:00:00")
+        self.activityTime.set(str(datetime.now()))
         
         self.entLab=Label(self,text="Decay Constant(Hz)")
         self.ent=Entry(self,textvariable=self.dec)
