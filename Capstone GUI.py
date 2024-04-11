@@ -54,6 +54,17 @@ class SerialManager:
                 if self.app_instance.testOn==False:
                     received_data = self.ser.readline().decode().strip()
                     self.app_instance.update_serial_text(received_data)# Update the GUI text box
+                    if self.app_instance.calOn==True:
+                        row=parse.parse("{} {} {} {}",received_data)
+                        if not isinstance(row, type(None)):
+                            try:
+                                self.app_instance.saltSph=float(row[0])
+                                self.app_instance.saltKid=float(row[1])
+                                self.app_instance.waterSph=float(row[2])
+                                self.app_instance.waterKid=float(row[3])
+                                self.app_instance.calOn=False
+                            except:
+                                print("Read ErrorC")
                 else:
                     received_data = self.ser.readline().decode().strip()
                     self.app_instance.update_serial_text(received_data)
@@ -72,10 +83,10 @@ class SerialManager:
                             if self.app_instance.sphfileLoaded==True and self.app_instance.kidfileLoaded==True:
                                 self.app_instance.t.append(float(row[0]))
                                 
-                                self.app_instance.concSph.append(float(row[1])*math.exp(-float(row[0])*float(self.app_instance.dec.get())))
-                                self.app_instance.concKid.append(float(row[3])*math.exp(-float(row[0])*float(self.app_instance.dec.get())))
-                                self.app_instance.setKid.append(float(row[4])*math.exp(-float(row[0])*float(self.app_instance.dec.get())))
-                                self.app_instance.setSph.append(float(row[2])*math.exp(-float(row[0])*float(self.app_instance.dec.get())))
+                                self.app_instance.concSph.append((float(row[1])*math.exp(-float(row[0])*float(self.app_instance.dec.get()))-self.waterSph)*self.trueActivity/(self.saltSph-self.waterSph))
+                                self.app_instance.concKid.append((float(row[3])*math.exp(-float(row[0])*float(self.app_instance.dec.get()))-self.waterKid)*self.trueActivity/(self.saltKid-self.waterKid))
+                                self.app_instance.setKid.append((float(row[4])*math.exp(-float(row[0])*float(self.app_instance.dec.get()))-self.waterKid)*self.trueActivity/(self.saltKid-self.waterKid))
+                                self.app_instance.setSph.append((float(row[2])*math.exp(-float(row[0])*float(self.app_instance.dec.get()))-self.waterSph)*self.trueActivity/(self.saltSph-self.waterSph))
 
                                 if not float(row[2])==0:
                                     #self.app_instance.erSph.append(100*(float(row[1])*math.exp(-float(row[0])*float(self.app_instance.dec.get()))-self.app_instance.timeconcsphy[(np.abs(np.array(self.app_instance.timeconcspht) - float(row[0]))).argmin()])/self.app_instance.timeconcsphy[(np.abs(np.array(self.app_instance.timeconcspht) - float(row[0]))).argmin()])
@@ -94,8 +105,8 @@ class SerialManager:
                             if self.app_instance.sphfileLoaded==True and self.app_instance.kidfileLoaded==False:
                                 self.app_instance.t.append(float(row[0]))
                                 
-                                self.app_instance.concSph.append(float(row[1])*math.exp(-float(row[0])*float(self.app_instance.dec.get())))
-                                self.app_instance.setSph.append(float(row[2])*math.exp(-float(row[0])*float(self.app_instance.dec.get())))
+                                self.app_instance.concSph.append((float(row[1])*math.exp(-float(row[0])*float(self.app_instance.dec.get()))-self.waterSph)*self.trueActivity/(self.saltSph-self.waterSph))
+                                self.app_instance.setSph.append((float(row[2])*math.exp(-float(row[0])*float(self.app_instance.dec.get()))-self.waterSph)*self.trueActivity/(self.saltSph-self.waterSph))
 
                                 if not float(row[2])==0:
                                     self.app_instance.erSph.append(100*(float(row[1])-float(row[2]))/float(row[2]))
@@ -107,8 +118,8 @@ class SerialManager:
                             if self.app_instance.sphfileLoaded==False and self.app_instance.kidfileLoaded==True:
                                 self.app_instance.t.append(float(row[0]))
                                 
-                                self.app_instance.concKid.append(float(row[1])*math.exp(-float(row[0])*float(self.app_instance.dec.get())))
-                                self.app_instance.setKid.append(float(row[2])*math.exp(-float(row[0])*float(self.app_instance.dec.get())))
+                                self.app_instance.concKid.append((float(row[1])*math.exp(-float(row[0])*float(self.app_instance.dec.get()))-self.waterKid)*self.trueActivity/(self.saltKid-self.waterKid))
+                                self.app_instance.setKid.append((float(row[2])*math.exp(-float(row[0])*float(self.app_instance.dec.get()))-self.waterKid)*self.trueActivity/(self.saltKid-self.waterKid))
                                 if not float(row[2])==0:
                                     self.app_instance.erKid.append(100*(float(row[1])-float(row[2]))/float(row[2]))
                                 else:
@@ -135,6 +146,7 @@ class MainPage(Frame):
         self.testEnd=False
         self.sphfileLoaded=False
         self.kidfileLoaded=False
+        self.calOn=False
         
         self.clicked = StringVar()
         self.clicked.set("")
@@ -191,6 +203,8 @@ class MainPage(Frame):
         self.rawKid=[0]
         self.concSph=[0]
         self.concKid=[0]
+        self.setKid=[0]
+        self.setSph=[0]
         self.erSph=[0]
         self.erKid=[0]
         self.i=0
@@ -230,10 +244,10 @@ class MainPage(Frame):
         self.entActivityTime.grid(row=4,column=1,padx=5,pady=5)
         self.selFileSphere.grid(row=5,column=0,padx=5,pady=5)
         self.buttonOpenSphere.grid(row=5,column=1,padx=5,pady=5)
-        self.buttonLoadCurveSphere.grid(row=5,column=2,padx=5,pady=5)
+        #self.buttonLoadCurveSphere.grid(row=5,column=2,padx=5,pady=5)
         self.selFileKidney.grid(row=6,column=0,padx=5,pady=5)
         self.buttonOpenKidney.grid(row=6,column=1,padx=5,pady=5)
-        self.buttonLoadCurveKidney.grid(row=6,column=2,padx=5,pady=5)
+        #self.buttonLoadCurveKidney.grid(row=6,column=2,padx=5,pady=5)
         self.buttonCali.grid(row=7,column=1,padx=5,pady=5)
         self.buttonRun.grid(row=8,column=0,padx=5,pady=5)
         self.buttonStop.grid(row=8,column=1,padx=5,pady=5)
@@ -282,9 +296,19 @@ class MainPage(Frame):
         except:
             self.update_serial_text("Activity has incorrect format")
             return
-        
+        if self.kidfileOpened==True and self.sphfileOpened==True:
+            self.loadCurve("sph")
+            self.loadCurve("kid")
+        elif self.kidfileOpened==True and self.sphfileOpened==False:
+            self.loadCurve("kid")
+        elif self.kidfileOpened==False and self.sphfileOpened==True:
+            self.loadCurve("sph")
+        else:
+            self.update_serial_text("No Curves Selected")
+            return
+
         self.send_data("1\n")
-        self.send_data(str(self.trueActivity)+"\n")
+        #self.send_data(str(self.trueActivity)+"\n")
         
         self.testOn=True
         
@@ -318,6 +342,7 @@ class MainPage(Frame):
         
     def calibrate(self):
         self.send_data("2\n")
+        self.calOn=True
         
     def flush(self):
         self.send_data("3\n")
@@ -329,7 +354,7 @@ class MainPage(Frame):
             
             for x in self.timeconcDecsph:
                 self.send_data(str('{0:.3f}'.format(x[0]))+"\n")
-                self.send_data(str('{0:.3f}'.format(x[1]))+"\n")
+                self.send_data(str('{0:.3f}'.format(x[1]*(self.saltSph-self.waterSph)/self.trueActivity+self.waterSph))+"\n")
             
             self.sphfileLoaded=True
         else:
@@ -338,7 +363,7 @@ class MainPage(Frame):
             
             for x in self.timeconcDeckid:
                 self.send_data(str('{0:.3f}'.format(x[0]))+"\n")
-                self.send_data(str('{0:.3f}'.format(x[1]))+"\n")
+                self.send_data(str('{0:.3f}'.format(x[1]*(self.saltKid-self.waterKid)/self.trueActivity+self.waterKid))+"\n")
             
             self.kidfileLoaded=True
             
@@ -438,13 +463,13 @@ class MainPage(Frame):
 
                             self.filesizesph+=1
 
-                            self.timeconcDecsph.append([float(row[0]),float(row[1])*math.exp(float(row[0])*float(self.dec.get()))])
+                            self.timeconcDecsph.append([float(row[0]),(float(row[1])*math.exp(float(row[0])*float(self.dec.get())))])
 
                         self.axSph.plot(self.timeconcspht,self.timeconcsphy)    
                         self.canvas.draw()
 
                         if self.COMconnected==True:
-                            self.buttonLoadCurveSphere.config(state=NORMAL)
+                            self.buttonRun.config(state=NORMAL)
 
                         self.sphfileOpened=True
 
@@ -464,13 +489,13 @@ class MainPage(Frame):
 
                             self.filesizekid+=1
 
-                            self.timeconcDeckid.append([float(row[0]),float(row[1])*math.exp(float(row[0])*float(self.dec.get()))])
+                            self.timeconcDeckid.append([float(row[0]),(float(row[1])*math.exp(float(row[0])*float(self.dec.get())))])
 
                         self.axKid.plot(self.timeconckidt,self.timeconckidy)
                         self.canvas.draw()
 
                         if self.COMconnected==True:
-                            self.buttonLoadCurveKidney.config(state=NORMAL)
+                            self.buttonRun.config(state=NORMAL)
 
                         self.kidfileOpened=True
             except Exception as e:
