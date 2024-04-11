@@ -1,9 +1,9 @@
 #include <PID_v1.h>
 
-#define WATER 4
-#define SALT 2
+#define WATER 10
+#define SALT 7
 #define CONCENTRATION_INLET 2
-#define CONCENTRATION_OUTLET 0
+#define CONCENTRATION_OUTLET 2
 
 #define RUN 1
 #define CALIBRATE 2
@@ -21,8 +21,9 @@
 #define OFF 0
 #define WATER_SPEED 190
 #define SALT_SPEED 120
-#define WATER_MIN 85
+#define WATER_MIN 100
 #define SALT_MIN 80
+#define WATER_MAX 225
 
 #define SETPOINT_THRESHOLD 40
 #define WINDOW_SIZE 100
@@ -34,7 +35,7 @@
 #define WATERKI 0.0
 #define WATERKD 0.0
 
-#define UPPER_SETPOINT 180
+#define UPPER_SETPOINT 160
 #define LOWER_SETPOINT 40
 
 double Setpoint, Input, Output;
@@ -62,8 +63,8 @@ int curveIndex = 0;
 
 unsigned long currentTime = millis();
 
-double kidneyGains[2][3] = { { 0.07, 0.05, 0.005 }, { 0.05, 0.5, 0.005 } };
-double sphereGains[2][3] = { { 0.1, 0.4, 0.01 }, { 0.04, 0.14, 0.005 }};
+double kidneyGains[2][3] = {{0.2,0.5,0.005 }, {0.3,0.4,0.005}};
+double sphereGains[2][3] = { { 0.1,0.15,0.005 }, {0.0005,0.25,0.0005}};
 
 void setup() {
   pinMode(WATER, OUTPUT);
@@ -123,17 +124,17 @@ void loop() {
 
     Input = kidneyConc;
     //myPID.SetSampleTime(8);
-    int waterCommand = (int)linearInterpolation(Setpoint, LOWER_SETPOINT, UPPER_SETPOINT, 250, WATER_MIN);
+    int waterCommand = (int)linearInterpolation(Setpoint, LOWER_SETPOINT, UPPER_SETPOINT, WATER_MAX, WATER_MIN);
     analogWrite(WATER, waterCommand);
 
-    Kp = linearInterpolation(Setpoint, UPPER_SETPOINT, LOWER_SETPOINT, kidneyGains[0][0], kidneyGains[1][0]);
-    Ki = linearInterpolation(Setpoint, UPPER_SETPOINT, LOWER_SETPOINT, kidneyGains[0][1], kidneyGains[1][1]);
-    Kd = linearInterpolation(Setpoint, UPPER_SETPOINT, LOWER_SETPOINT, kidneyGains[0][2], kidneyGains[1][2]);
+    // Kp = linearInterpolation(Setpoint, UPPER_SETPOINT, LOWER_SETPOINT, kidneyGains[0][0], kidneyGains[1][0]);
+    // Ki = linearInterpolation(Setpoint, UPPER_SETPOINT, LOWER_SETPOINT, kidneyGains[0][1], kidneyGains[1][1]);
+    // Kd = linearInterpolation(Setpoint, UPPER_SETPOINT, LOWER_SETPOINT, kidneyGains[0][2], kidneyGains[1][2]);
     // Kp = linearInterpolation(Setpoint, UPPER_SETPOINT, LOWER_SETPOINT, sphereGains[0][0], sphereGains[1][0]);
     // Ki = linearInterpolation(Setpoint, UPPER_SETPOINT, LOWER_SETPOINT, sphereGains[0][1], sphereGains[1][1]);
     // Kd = linearInterpolation(Setpoint, UPPER_SETPOINT, LOWER_SETPOINT, sphereGains[0][2], sphereGains[1][2]);
-    // //Serial.print(0);
-    myPID.SetTunings(Kp, Ki, Kd);
+    // // //Serial.print(0);
+    // myPID.SetTunings(Kp, Ki, Kd);
 
     myPID.Compute();
     analogWrite(SALT, (int)Output);
@@ -151,7 +152,7 @@ void loop() {
     // Serial.print(" ");
     Serial.print(waterCommand);
     Serial.print(" ");
-    Serial.print((int)Output);
+    Serial.print(Output);
     Serial.print(" ");
     Serial.print(Setpoint * 1.1);
     Serial.print(" ");
@@ -312,9 +313,9 @@ void loop() {
     }
 
     else if (inChar.equals("6")) {
-      Serial.println(myPID.GetKp(), 3);
-      Serial.println(myPID.GetKi(), 3);
-      Serial.println(myPID.GetKd(), 3);
+      Serial.println(myPID.GetKp(), 5);
+      Serial.println(myPID.GetKi(), 5);
+      Serial.println(myPID.GetKd(), 5);
     }
 
     else if (inChar.equals("7")) {

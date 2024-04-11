@@ -6,7 +6,7 @@
 #define SALTS 7
 #define KIDNEY_CONC 4
 #define SPHERE_CONC 2
-#define RESEVOIR 7
+#define RESEVOIR 4
 
 #define RUN 1
 #define CALIBRATE 2
@@ -16,7 +16,7 @@
 #define STOP 5
 #define SALT_MEASURE 9
 
-#define CALIBRATION_TIME 20000
+#define CALIBRATION_TIME 10000
 #define FLUSH_TIME 10000
 #define MAX_ROWS 300
 #define RAMP_TIME 20000
@@ -84,7 +84,7 @@ String inChar;
 unsigned long currentTime = millis();
 
 double kidneyGains[2][3] = {{0.5,0.2,0.01 }, {0.25,0.1,0.01}};
-double sphereGains[2][3] = { { 0.5,0.5,0.01 }, {0.25,0.4,0.01}};
+double sphereGains[2][3] = { { 0.1,0.15,0.005 }, {0.0005,0.25,0.0005}};
 
 void setup() {
   pinMode(WATERK, OUTPUT);
@@ -119,8 +119,10 @@ void loop() {
   }
   kidneyConc = kidneyConc / WINDOW_SIZE;
   sphereConc = sphereConc / WINDOW_SIZE;
-  kidneyConc = linearInterpolation(kidneyConc, saltConcKidney, waterConcKidney, initialActivity, 0);
-  sphereConc = linearInterpolation(sphereConc, saltConcSphere, waterConcSphere, initialActivity, 0);
+  // kidneyConc = 100;
+  // sphereConc = 100;
+  // kidneyConc = linearInterpolation(kidneyConc, saltConcKidney, waterConcKidney, initialActivity, 0);
+  // sphereConc = linearInterpolation(sphereConc, saltConcSphere, waterConcSphere, initialActivity, 0);
 
   if (state == RUN) {
 
@@ -158,7 +160,7 @@ void loop() {
     }
 
     if(sphLoaded==1){
-      if (currentTime - runStart >= (int)curveKid[curveIndexs + 1][0] * 1000) {
+      if (currentTime - runStart >= (int)curveSph[curveIndexs + 1][0] * 1000) {
       curveIndexs++;
       }
 
@@ -168,6 +170,7 @@ void loop() {
         Serial.println(numRowss);
         curveIndexs = 0;
       }
+
       Setpoints = curveSph[curveIndexs][1];
       Inputs = sphereConc;
     
@@ -331,10 +334,19 @@ void loop() {
     Serial.println(waterConcKidney);
 
 
+    // Serial.print(190);
+    // Serial.print(" ");
+    // Serial.print(190);
+    // Serial.print(" ");
+    // Serial.print(20);
+    // Serial.print(" ");
+    // Serial.println(20);
+
+
     state = STOP;
   }
   if (state == CURVELOADSPH) {
-    Serial.println("curveload");
+    //Serial.println("curveload");
     analogWrite(WATERS, OFF);
     analogWrite(SALTS, OFF);
     while (Serial.available()==0) {
@@ -342,7 +354,7 @@ void loop() {
     if (Serial.available() > 0) {
       // Serial.readBytes((char*)&numRows, numRowsSize); // Read numRows as an int
       receivedString = Serial.readStringUntil('\n');
-      Serial.println("Received Sphere numRows: " + receivedString);
+      //Serial.println("Received Sphere numRows: " + receivedString);
       numRowss = receivedString.toInt();
 
       // Define the 2D array to store received data
@@ -358,21 +370,13 @@ void loop() {
           //Serial.println(curve[i][j]);
         }
       }
-      Serial.println("Finished Loading Curve");
-      for (int i = 0; i < numRowss; i++) {
-        Serial.print("Row ");
-        Serial.print(i);
-        Serial.print(": ");
-        Serial.print(curveSph[i][0]);
-        Serial.print(", ");
-        Serial.println(curveSph[i][1]);
-      }
+     
     }
     sphLoaded=1;
     state = STOP;
   }
   if (state == CURVELOADKID) {
-    Serial.println("curveload");
+    //Serial.println("curveload");
     analogWrite(WATERK, OFF);
     analogWrite(SALTK, OFF);
     while (Serial.available()==0) {
@@ -380,7 +384,7 @@ void loop() {
     if (Serial.available() > 0) {
       // Serial.readBytes((char*)&numRows, numRowsSize); // Read numRows as an int
       receivedString = Serial.readStringUntil('\n');
-      Serial.println("Received Kidney numRows: " + receivedString);
+      //Serial.println("Received Kidney numRows: " + receivedString);
       numRowsk = receivedString.toInt();
 
       // Define the 2D array to store received data
@@ -396,15 +400,15 @@ void loop() {
           //Serial.println(curve[i][j]);
         }
       }
-      Serial.println("Finished Loading Curve");
-      for (int i = 0; i < numRowsk; i++) {
-        Serial.print("Row ");
-        Serial.print(i);
-        Serial.print(": ");
-        Serial.print(curveKid[i][0]);
-        Serial.print(", ");
-        Serial.println(curveKid[i][1]);
-      }
+      // Serial.println("Finished Loading Curve");
+      // for (int i = 0; i < numRowsk; i++) {
+      //   Serial.print("Row ");
+      //   Serial.print(i);
+      //   Serial.print(": ");
+      //   Serial.print(curveKid[i][0]);
+      //   Serial.print(", ");
+      //   Serial.println(curveKid[i][1]);
+      // }
     }
     kidLoaded=1;
     state = STOP;
@@ -449,15 +453,15 @@ void loop() {
       currentTime = millis();
       curveIndexk = 0;
       curveIndexs = 0;
-      while (!Serial.available()) {
-      }
-      if (Serial.available() > 0) {
-        receivedString = Serial.readStringUntil('\n');
+      // while (!Serial.available()) {
+      // }
+      // if (Serial.available() > 0) {
+      //   receivedString = Serial.readStringUntil('\n');
         
-        initialActivity = receivedString.toDouble();
-        lowerBoundTracers = linearInterpolation(LOWER_SETPOINT,saltConcSphere,waterConcSphere,initialActivity, 0);
-        lowerBoundTracerk = linearInterpolation(LOWER_SETPOINT,saltConcKidney,waterConcKidney,initialActivity, 0);
-      }
+      //   initialActivity = receivedString.toDouble();
+      //   lowerBoundTracers = linearInterpolation(LOWER_SETPOINT,saltConcSphere,waterConcSphere,initialActivity, 0);
+      //   lowerBoundTracerk = linearInterpolation(LOWER_SETPOINT,saltConcKidney,waterConcKidney,initialActivity, 0);
+      // }
        
     } else if (inChar.equals("2")) {
       Serial.println(CALIBRATE);
@@ -466,11 +470,11 @@ void loop() {
       state = FLUSH;
 
     } else if (inChar.equals("10")) {
-      // Serial.println(CURVELOAD);
+      Serial.println(10);
       state = CURVELOADSPH;
     } 
     else if (inChar.equals("11")) {
-      // Serial.println(CURVELOAD);
+      Serial.println(11);
       state = CURVELOADKID;
     }
     else if (inChar.equals("5")) {
