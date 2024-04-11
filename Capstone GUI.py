@@ -335,6 +335,7 @@ class MainPage(Frame):
                     self.axSph.plot(self.t[0:self.i-1],self.concSph[0:self.i-1])
                     self.axSpher.plot(self.t[0:self.i-1],self.erSph[0:self.i-1])
                     self.axSpher.set_xlim(self.t[self.i-1]-10,self.t[self.i-1]+10)
+                    self.axSpher.set_ylim(-50,50)
                 if self.kidfileLoaded==True:
                     self.axKid.clear()
                     self.axKider.clear()
@@ -342,6 +343,7 @@ class MainPage(Frame):
                     self.axKid.plot(self.t[0:self.i-1],self.concKid[0:self.i-1])
                     self.axKider.plot(self.t[0:self.i-1],self.erKid[0:self.i-1])
                     self.axKider.set_xlim(self.t[self.i-1]-10,self.t[self.i-1]+10)
+                    self.axKider.set_ylim(-50,50)
 
                 self.fig.canvas.draw()
         except Exception as e:
