@@ -63,6 +63,8 @@ class SerialManager:
                                 self.app_instance.waterSph=float(row[2])
                                 self.app_instance.waterKid=float(row[3])
                                 self.app_instance.calOn=False
+                                self.app_instance.buttonOpenSphere.config(state=NORMAL)
+                                self.app_instance.buttonOpenKidney.config(state=NORMAL)
                             except:
                                 print("Read Error")
                 else:
@@ -179,11 +181,11 @@ class MainPage(Frame):
         self.entLabActivityTime=Label(self,text="Measurement Time (YY-MM-DD HH:MM:SS)")
         self.entActivityTime=Entry(self,textvariable=self.activityTime)
         
-        self.buttonOpenSphere=Button(self,text="Open Sphere File",command=lambda:self.openFile(self.selFileSphere,"sph"))
+        self.buttonOpenSphere=Button(self,text="Open Sphere File",state="disabled",command=lambda:self.openFile(self.selFileSphere,"sph"))
         self.selFileSphere=Label(self,text="No File Selected")
         self.buttonLoadCurveSphere=Button(self,text="Load Sphere Curve",state="disabled",command=lambda:self.loadCurve("sph"))
         
-        self.buttonOpenKidney=Button(self,text="Open Kidney File",command=lambda:self.openFile(self.selFileKidney,"kid"))
+        self.buttonOpenKidney=Button(self,text="Open Kidney File",state="disabled",command=lambda:self.openFile(self.selFileKidney,"kid"))
         self.selFileKidney=Label(self,text="No File Selected")
         self.buttonLoadCurveKidney=Button(self,text="Load Kidney Curve",state="disabled",command=lambda:self.loadCurve("kid"))
 
@@ -346,6 +348,8 @@ class MainPage(Frame):
     def calibrate(self):
         self.send_data("2\n")
         self.calOn=True
+
+
         
     def flush(self):
         self.send_data("3\n")
