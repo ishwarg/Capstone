@@ -45,7 +45,7 @@ class SerialManager:
         self.thread_read.start()
         
     def send_data(self, data):
-        time.sleep(0.100)
+        time.sleep(0.1)
         self.ser.write(data.encode())
 
     def read_data_thread(self):
@@ -326,23 +326,25 @@ class MainPage(Frame):
 
         
     def animate(self):
-        if self.testOn==True:
-            if self.sphfileLoaded==True:
-                self.axSph.clear()
-                self.axSpher.clear()
-                self.axSph.plot(self.timeconcspht,self.timeconcsphy)
-                self.axSph.plot(self.t[0:self.i-1],self.concSph[0:self.i-1])
-                self.axSpher.plot(self.t[0:self.i-1],self.erSph[0:self.i-1])
+        try:
+            if self.testOn==True:
+                if self.sphfileLoaded==True:
+                    self.axSph.clear()
+                    self.axSpher.clear()
+                    self.axSph.plot(self.timeconcspht,self.timeconcsphy)
+                    self.axSph.plot(self.t[0:self.i-1],self.concSph[0:self.i-1])
+                    self.axSpher.plot(self.t[0:self.i-1],self.erSph[0:self.i-1])
+                    
+                if self.kidfileLoaded==True:
+                    self.axKid.clear()
+                    self.axKider.clear()
+                    self.axKid.plot(self.timeconckidt,self.timeconckidy)
+                    self.axKid.plot(self.t[0:self.i-1],self.concKid[0:self.i-1])
+                    self.axKider.plot(self.t[0:self.i-1],self.erKid[0:self.i-1])
                 
-            if self.kidfileLoaded==True:
-                self.axKid.clear()
-                self.axKider.clear()
-                self.axKid.plot(self.timeconckidt,self.timeconckidy)
-                self.axKid.plot(self.t[0:self.i-1],self.concKid[0:self.i-1])
-                self.axKider.plot(self.t[0:self.i-1],self.erKid[0:self.i-1])
-            
-            self.fig.canvas.draw()
-
+                self.fig.canvas.draw()
+        except Exception as e:
+            print(e)
         self.after(10, self.animate)
         
     def calibrate(self):
