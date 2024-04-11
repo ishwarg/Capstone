@@ -4,8 +4,9 @@
 #define SALTK 2
 #define WATERS 10
 #define SALTS 7
-#define KIDNEY_CONC 0
+#define KIDNEY_CONC 4
 #define SPHERE_CONC 2
+#define RESEVOIR 7
 
 #define RUN 1
 #define CALIBRATE 2
@@ -15,7 +16,7 @@
 #define STOP 5
 #define SALT_MEASURE 9
 
-#define CALIBRATION_TIME 10000
+#define CALIBRATION_TIME 20000
 #define FLUSH_TIME 10000
 #define MAX_ROWS 300
 #define RAMP_TIME 20000
@@ -82,8 +83,8 @@ String inChar;
 
 unsigned long currentTime = millis();
 
-double kidneyGains[2][3] = { { 0.07, 0.1, 0.005 }, { 0.05, 0.5, 0.005 } };
-double sphereGains[2][3] = { { 0.1, 0.4, 0.01 }, { 0.04, 0.14, 0.005 }};
+double kidneyGains[2][3] = {{0.5,0.2,0.01 }, {0.25,0.1,0.01}};
+double sphereGains[2][3] = { { 0.5,0.5,0.01 }, {0.25,0.4,0.01}};
 
 void setup() {
   pinMode(WATERK, OUTPUT);
@@ -190,18 +191,28 @@ void loop() {
     Serial.print(testTime);
     Serial.print(" ");
     if (sphLoaded == 1 && kidLoaded == 1){
+      Serial.print(sphereConc,5);
+      Serial.print(" ");
+      Serial.print(Setpoints,5);
+      Serial.print(" ");
       Serial.print(kidneyConc,5);
       Serial.print(" ");
-      Serial.println(sphereConc,5);
+      Serial.println(Setpointk,5);
+  
+      
     
     }
     else if (sphLoaded == 1){
-      Serial.println(sphereConc,5);
+      Serial.print(sphereConc,5);
+      Serial.print(" ");
+      Serial.println(Setpoints,5);
     }
     else{
       // Serial.print(Setpointk);
       // Serial.print(" ");
-      Serial.println(kidneyConc,5);
+      Serial.print(kidneyConc,5);
+      Serial.print(" ");
+      Serial.println(Setpointk,5);
     }
 
     // Serial.print(0);
@@ -241,79 +252,82 @@ void loop() {
   else if (state == CALIBRATE) {
     Serial.println("calibrate");
 
-    if(kidLoaded==1){
+    
     analogWrite(WATERK, FULL_SPEED);
     analogWrite(SALTK, OFF);
-    }
+    
 
-    if(sphLoaded==1){
+    
     analogWrite(WATERS, FULL_SPEED);
     analogWrite(SALTS, OFF);
-    }
+    
    
     delay(CALIBRATION_TIME);
 
-    if(kidLoaded==1){
+    
     analogWrite(WATERK, OFF);
     analogWrite(SALTK, OFF);
-    }
-    if(sphLoaded==1){
+    
+    
     analogWrite(WATERS, OFF);
     analogWrite(SALTS, OFF);
-    }
+    
 
     delay(1000);
-    if(sphLoaded==1){
+    
     for (int i = 0; i < 50; i++) {
       waterConcSphere += (float)analogRead(SPHERE_CONC);
-    }
+    
     waterConcSphere = waterConcSphere / 50.0;
     }
-    if(kidLoaded==1){
+    
     for (int i = 0; i < 50; i++) {
       waterConcKidney += (float)analogRead(KIDNEY_CONC);
     }
     waterConcKidney = waterConcKidney / 50.0;
-    }
     
-    if(kidLoaded==1){
+    
+    
     analogWrite(WATERK, OFF);
     analogWrite(SALTK, FULL_SPEED);
-    }
-    if(sphLoaded==1){
+    
+    
     analogWrite(WATERS, OFF);
     analogWrite(SALTS, FULL_SPEED);
-    }
+    
     
     delay(CALIBRATION_TIME);
     
-    if(kidLoaded==1){
+    
     analogWrite(WATERK, OFF);
     analogWrite(SALTK, OFF);
-    }
-    if(sphLoaded==1){
+    
+    
     analogWrite(WATERS, OFF);
     analogWrite(SALTS, OFF);
-    }
+    
 
     delay(1000);
 
-    if(sphLoaded==1){
+    
     for (int i = 0; i < 50; i++) {
       saltConcSphere += (float)analogRead(SPHERE_CONC);
     }
     saltConcSphere = saltConcSphere / 50.0;
-    }
-    if(kidLoaded==1){
+    
+    
     for (int i = 0; i < 50; i++) {
       saltConcKidney += (float)analogRead(KIDNEY_CONC);
     }
     saltConcKidney = saltConcKidney / 50.0;
-    }
+    
 
-    Serial.println(saltConcSphere);
-    Serial.println(saltConcKidney);
-    Serial.println(waterConcKidney);
+    Serial.print(saltConcSphere);
+    Serial.print(" ");
+    Serial.print(saltConcKidney);
+    Serial.print(" ");
+    Serial.print(waterConcSphere);
+    Serial.print(" ");
     Serial.println(waterConcKidney);
 
 
@@ -408,9 +422,10 @@ void loop() {
   else if (state == SALT_MEASURE) {
     // analogWrite(WATER, 120);
     // analogWrite(SALT, 120);
-    Serial.print(analogRead(SPHERE_CONC));
-    Serial.print(" ");
-    Serial.println(analogRead(KIDNEY_CONC));
+    // Serial.print(analogRead(SPHERE_CONC));
+    // Serial.print(" ");
+    // Serial.println(analogRead(KIDNEY_CONC));
+    Serial.println(analogRead(RESEVOIR));
   }
 
 
