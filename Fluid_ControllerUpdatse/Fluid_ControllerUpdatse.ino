@@ -24,11 +24,13 @@
 #define FULL_SPEED 255
 #define OFF 0
 
-#define WATER_MIN 85
-#define SALT_MIN 80
+#define WATER_MIN 120
+#define SALT_MIN 85
+#define WATER_MAX 200
 
 #define SETPOINT_THRESHOLD 40
 #define WINDOW_SIZE 100
+#define UPDATE_COUNTS 65
 
 #define SALTKP 0.1
 #define SALTKI 0.0
@@ -37,7 +39,7 @@
 #define WATERKI 0.0
 #define WATERKD 0.0
 
-#define UPPER_SETPOINT 180
+#define UPPER_SETPOINT 150
 #define LOWER_SETPOINT 40
 
 double Setpoints, Inputs, Outputs;
@@ -77,14 +79,15 @@ int curveIndexk = 0;
 int curveIndexs = 0;
 int waterCommandk;
 int waterCommands;
+int updateCount = 0;
 
 String receivedString;
 String inChar;
 
 unsigned long currentTime = millis();
 
-double kidneyGains[2][3] = {{0.5,0.2,0.01 }, {0.25,0.1,0.01}};
-double sphereGains[2][3] = { { 0.1,0.15,0.005 }, {0.0005,0.25,0.0005}};
+double kidneyGains[2][3] = {{0.0300,0.10,0.0500 }, {0.1000,0.40000,0.00000}};
+double sphereGains[2][3] = { { 0.3000,0.200,0.00600 }, {0.0500,0.100,0.0000}};
 
 void setup() {
   pinMode(WATERK, OUTPUT);
@@ -127,9 +130,10 @@ void loop() {
   if (state == RUN) {
 
     currentTime = millis();
-    
+    updateCount++;
     if(kidLoaded==1){
-      if (currentTime - runStart >= (int)curveKid[curveIndexk + 1][0] * 1000) {
+      Setpointk = linearInterpolation(currentTime-runStart, curveKid[curveIndexk+1][0]*1000, curveKid[curveIndexk][0]*1000, curveKid[curveIndexk+1][1], curveKid[curveIndexk][1]);
+      if (currentTime - runStart >=(unsigned long)curveKid[curveIndexk + 1][0] * 1000.0) {
       curveIndexk++;
       }
 
@@ -138,12 +142,12 @@ void loop() {
       Serial.println("Finished Kidneys");
       Serial.println(numRowsk);
       curveIndexk = 0;
+      
       }
 
-      Setpointk = curveKid[curveIndexk][1];
       Inputk = kidneyConc;
      
-      waterCommandk = (int)linearInterpolation(Setpointk, LOWER_SETPOINT, UPPER_SETPOINT, 250, WATER_MIN);
+      waterCommandk = (int)linearInterpolation(Setpointk, LOWER_SETPOINT, UPPER_SETPOINT, WATER_MAX, WATER_MIN);
       analogWrite(WATERK, waterCommandk);
 
       Kpk = linearInterpolation(Setpointk, UPPER_SETPOINT, LOWER_SETPOINT, kidneyGains[0][0], kidneyGains[1][0]);
@@ -160,7 +164,9 @@ void loop() {
     }
 
     if(sphLoaded==1){
-      if (currentTime - runStart >= (int)curveSph[curveIndexs + 1][0] * 1000) {
+      Setpoints = linearInterpolation(currentTime-runStart, curveSph[curveIndexs+1][0]*1000, curveSph[curveIndexs][0]*1000, curveSph[curveIndexs+1][1], curveSph[curveIndexs][1]);
+      
+      if (currentTime - runStart >= (unsigned long)curveSph[curveIndexs + 1][0] * 1000.0) {
       curveIndexs++;
       }
 
@@ -169,12 +175,12 @@ void loop() {
         Serial.println("Finished Spheres");
         Serial.println(numRowss);
         curveIndexs = 0;
+        
       }
 
-      Setpoints = curveSph[curveIndexs][1];
       Inputs = sphereConc;
     
-      waterCommands = (int)linearInterpolation(Setpoints, LOWER_SETPOINT, UPPER_SETPOINT, 250, WATER_MIN);
+      waterCommands = (int)linearInterpolation(Setpoints, LOWER_SETPOINT, UPPER_SETPOINT, WATER_MAX, WATER_MIN);
       analogWrite(WATERS, waterCommands);
 
     
@@ -188,52 +194,53 @@ void loop() {
       analogWrite(SALTS, (int)Outputs);
 
     }
+    if(updateCount>=UPDATE_COUNTS){
+      testTime = (double)(millis()-runStart)/1000.0;
 
-    testTime = (double)(millis()-runStart)/1000.0;
-
-    Serial.print(testTime);
-    Serial.print(" ");
-    if (sphLoaded == 1 && kidLoaded == 1){
-      Serial.print(sphereConc,5);
+      Serial.print(testTime);
       Serial.print(" ");
-      Serial.print(Setpoints,5);
-      Serial.print(" ");
-      Serial.print(kidneyConc,5);
-      Serial.print(" ");
-      Serial.println(Setpointk,5);
-  
-      
+      if (sphLoaded == 1 && kidLoaded == 1){
+        Serial.print(sphereConc,5);
+        Serial.print(" ");
+        Serial.print(Setpoints,5);
+        Serial.print(" ");
+        Serial.print(kidneyConc,5);
+        Serial.print(" ");
+        Serial.println(Setpointk,5);
     
-    }
-    else if (sphLoaded == 1){
-      Serial.print(sphereConc,5);
-      Serial.print(" ");
-      Serial.println(Setpoints,5);
-    }
-    else{
+        
+      
+      }
+      else if (sphLoaded == 1){
+        Serial.print(sphereConc,5);
+        Serial.print(" ");
+        Serial.println(Setpoints,5);
+      }
+      else{
+        // Serial.print(Setpointk);
+        // Serial.print(" ");
+        Serial.print(kidneyConc,5);
+        Serial.print(" ");
+        Serial.println(Setpointk,5);
+      }
+
+      // Serial.print(0);
+      // Serial.print(" ");
       // Serial.print(Setpointk);
       // Serial.print(" ");
-      Serial.print(kidneyConc,5);
-      Serial.print(" ");
-      Serial.println(Setpointk,5);
+      // Serial.print(kidneyConc);
+      // Serial.print(" ");
+      // Serial.print(0);
+      // Serial.print(" ");
+      // Serial.print(waterCommandk);
+      // Serial.print(" ");
+      // Serial.print((int)Outputk);
+      // Serial.print(" ");
+      // Serial.print(Setpointk * 1.1);
+      // Serial.print(" ");
+      // Serial.println(Setpointk * 0.9);
+    updateCount = 0;
     }
-
-    // Serial.print(0);
-    // Serial.print(" ");
-    // Serial.print(Setpointk);
-    // Serial.print(" ");
-    // Serial.print(kidneyConc);
-    // Serial.print(" ");
-    // Serial.print(0);
-    // Serial.print(" ");
-    // Serial.print(waterCommandk);
-    // Serial.print(" ");
-    // Serial.print((int)Outputk);
-    // Serial.print(" ");
-    // Serial.print(Setpointk * 1.1);
-    // Serial.print(" ");
-    // Serial.println(Setpointk * 0.9);
-    
   }
 
   else if (state == FLUSH) {
@@ -265,7 +272,7 @@ void loop() {
     analogWrite(SALTS, OFF);
     
    
-    delay(CALIBRATION_TIME);
+    delay(CALIBRATION_TIME); //CHANGE THIS LINE!!!!
 
     
     analogWrite(WATERK, OFF);
@@ -424,12 +431,12 @@ void loop() {
     analogWrite(SALTS, OFF);
   }
   else if (state == SALT_MEASURE) {
-    // analogWrite(WATER, 120);
-    // analogWrite(SALT, 120);
-    // Serial.print(analogRead(SPHERE_CONC));
-    // Serial.print(" ");
-    // Serial.println(analogRead(KIDNEY_CONC));
-    Serial.println(analogRead(RESEVOIR));
+    analogWrite(SALTS, 90);
+    analogWrite(SALTK, 90);
+    Serial.print(analogRead(SPHERE_CONC));
+    Serial.print(" ");
+    Serial.println(analogRead(KIDNEY_CONC));
+    // Serial.println(analogRead(RESEVOIR));
   }
 
 
@@ -451,8 +458,8 @@ void loop() {
         myPIDS.SetMode(AUTOMATIC);
       runStart = millis();
       currentTime = millis();
-      curveIndexk = 0;
-      curveIndexs = 0;
+      curveIndexk = 1;
+      curveIndexs = 1;
       // while (!Serial.available()) {
       // }
       // if (Serial.available() > 0) {

@@ -45,7 +45,7 @@ class SerialManager:
         self.thread_read.start()
         
     def send_data(self, data):
-        time.sleep(0.1)
+        time.sleep(0.01)
         self.ser.write(data.encode())
 
     def read_data_thread(self):
@@ -384,6 +384,7 @@ class MainPage(Frame):
     def stopTest(self):
         if self.testEnd==False:
             self.send_data("5\n")
+            
         if not self.filewritename.get()=="":
             try:
                 self.filewrite=open(self.filewritename.get()+".csv","x")

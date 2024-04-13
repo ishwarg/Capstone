@@ -21,9 +21,9 @@
 #define OFF 0
 #define WATER_SPEED 190
 #define SALT_SPEED 120
-#define WATER_MIN 100
-#define SALT_MIN 80
-#define WATER_MAX 225
+#define WATER_MIN 120.0
+#define SALT_MIN 85.0
+#define WATER_MAX 200.0
 
 #define SETPOINT_THRESHOLD 40
 #define WINDOW_SIZE 100
@@ -35,8 +35,9 @@
 #define WATERKI 0.0
 #define WATERKD 0.0
 
-#define UPPER_SETPOINT 160
+#define UPPER_SETPOINT 150
 #define LOWER_SETPOINT 40
+#define UPDATE_COUNTS 60
 
 double Setpoint, Input, Output;
 
@@ -59,12 +60,12 @@ int state = 5;
 int numRows = 0;
 double curve[MAX_ROWS][2] = { { 0.0, UPPER_SETPOINT }, { 60.0, 0.0 } };
 int curveIndex = 0;
-
+int updateCount = 0;
 
 unsigned long currentTime = millis();
 
-double kidneyGains[2][3] = {{0.2,0.5,0.005 }, {0.3,0.4,0.005}};
-double sphereGains[2][3] = { { 0.1,0.15,0.005 }, {0.0005,0.25,0.0005}};
+double kidneyGains[2][3] = {{0.0300,0.10,0.0500 }, {0.1000,0.40000,0.00000}};
+double sphereGains[2][3] = { { 0.3000,0.200,0.00600 }, {0.0500,0.100,0.0000}};
 
 void setup() {
   pinMode(WATER, OUTPUT);
@@ -130,11 +131,11 @@ void loop() {
     // Kp = linearInterpolation(Setpoint, UPPER_SETPOINT, LOWER_SETPOINT, kidneyGains[0][0], kidneyGains[1][0]);
     // Ki = linearInterpolation(Setpoint, UPPER_SETPOINT, LOWER_SETPOINT, kidneyGains[0][1], kidneyGains[1][1]);
     // Kd = linearInterpolation(Setpoint, UPPER_SETPOINT, LOWER_SETPOINT, kidneyGains[0][2], kidneyGains[1][2]);
-    // Kp = linearInterpolation(Setpoint, UPPER_SETPOINT, LOWER_SETPOINT, sphereGains[0][0], sphereGains[1][0]);
-    // Ki = linearInterpolation(Setpoint, UPPER_SETPOINT, LOWER_SETPOINT, sphereGains[0][1], sphereGains[1][1]);
-    // Kd = linearInterpolation(Setpoint, UPPER_SETPOINT, LOWER_SETPOINT, sphereGains[0][2], sphereGains[1][2]);
-    // // //Serial.print(0);
-    // myPID.SetTunings(Kp, Ki, Kd);
+    Kp = linearInterpolation(Setpoint, UPPER_SETPOINT, LOWER_SETPOINT, sphereGains[0][0], sphereGains[1][0]);
+    Ki = linearInterpolation(Setpoint, UPPER_SETPOINT, LOWER_SETPOINT, sphereGains[0][1], sphereGains[1][1]);
+    Kd = linearInterpolation(Setpoint, UPPER_SETPOINT, LOWER_SETPOINT, sphereGains[0][2], sphereGains[1][2]);
+    //Serial.print(0);
+    myPID.SetTunings(Kp, Ki, Kd);
 
     myPID.Compute();
     analogWrite(SALT, (int)Output);
@@ -313,8 +314,10 @@ void loop() {
     }
 
     else if (inChar.equals("6")) {
-      Serial.println(myPID.GetKp(), 5);
-      Serial.println(myPID.GetKi(), 5);
+      Serial.print(myPID.GetKp(), 5);
+      Serial.print(",");
+      Serial.print(myPID.GetKi(), 5);
+      Serial.print(",");
       Serial.println(myPID.GetKd(), 5);
     }
 
